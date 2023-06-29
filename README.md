@@ -1,3 +1,3 @@
 # Group02
 
-First draft of this project.
+First draft of this project
