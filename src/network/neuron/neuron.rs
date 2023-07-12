@@ -1,0 +1,1 @@
+// generic trait Neuron that defines the interface for a neuron

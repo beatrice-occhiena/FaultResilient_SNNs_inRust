@@ -1,0 +1,1 @@
+// Implements the Neuron trait with the leaky integrate-and-fire (LIF) model.
