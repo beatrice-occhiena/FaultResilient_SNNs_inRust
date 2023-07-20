@@ -35,11 +35,24 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
       intra_weights, 
       prev_output_spikes: vec![0; num_n] 
     }
-
   }
 
-  //Getters
-  
+  // Getters
+  pub fn get_num_neurons(&self) -> usize {
+    self.neurons.len()
+  }
+
+  pub fn get_neurons(&self) -> &Vec<N> {
+    &self.neurons
+  }
+
+  pub fn get_extra_weights(&self) -> &Vec<Vec<f64>> {
+    &self.extra_weights
+  }
+
+  pub fn get_intra_weights(&self) -> &Vec<Vec<f64>> {
+    &self.intra_weights
+  }
 
 
 
