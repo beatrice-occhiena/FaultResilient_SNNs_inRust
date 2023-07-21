@@ -1,3 +1,4 @@
+use std::sync::mpsc::{Sender, Receiver};
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
 
@@ -8,7 +9,7 @@ where N: Neuron + Clone + Send + 'static
     neurons: Vec<N>,                // neurons in a layer
     extra_weights: Vec<Vec<f64>>,   // weights of the connections between each neuron and the neurons in the previous layer
     intra_weights: Vec<Vec<f64>>,   // weights of the connections between each neuron and the neurons in the same layer
-    prev_output_spikes: Vec<u8>,    // output vector (0/1) in a layer at time instant t-1: used to decrease the v_mem according to the intra_weights
+    prev_output: Vec<u8>,           // output vector (0/1) in a layer at time instant t-1: used to decrease the v_mem according to the intra_weights
 }
 
 impl <N: Neuron + Clone + Send + 'static> Layer<N> {
@@ -33,7 +34,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
       neurons, 
       extra_weights, 
       intra_weights, 
-      prev_output_spikes: vec![0; num_n] 
+      prev_output: vec![0; num_n] 
     }
   }
 
@@ -54,6 +55,92 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     &self.intra_weights
   }
 
+  pub fn get_prev_output(&self) -> &Vec<u8> {
+    &self.prev_output
+  }
 
+  // Setters
+  fn reset (&mut self) {
+    self.prev_output.clear();
+    self.prev_output = vec![0; self.neurons.len()];
+    
+    for neuron in self.neurons.iter_mut() {
+      neuron.reset();
+    }
+  }
+
+  /**
+    It processes the input spikes coming from the previous layer
+    according to the model of the neurons in the layer, and returns 
+    the output spikes to the next layer.
+    - @param input_rc: the channel to receive the input spike event from the previous layer
+    - @param output_tx: the channel to send the output spike event to the next layer
+   */
+  pub fn process_input(&mut self, input_rc: Receiver<SpikeEvent>, output_tx: Sender<SpikeEvent>) {
+    
+    // reset the neurons in the layer to reuse the SNN
+    // for future inferences without building a new one
+    self.reset();
+
+    // listen to the input spikes from the previous layer
+    // until an Err is received (the channel is closed)
+    while let Ok(input) = input_rc.recv() {
+
+      let timestamp = input.get_t();
+      let input_spikes = input.get_spikes();
+      let mut output_spikes = Vec::<u8>::with_capacity(self.neurons.len());
+
+      // if all the spikes in the input vector are 0
+      // then there is no need to send the output spikes to the next layer
+      let mut all_zero = true;
+
+      // for each neuron in the layer compute the membrane potential
+      // and check if it spikes
+      // -----------------------------------------------------------
+      for (i, neuron) in self.neurons.iter_mut().enumerate() {
+
+        // compute the sum of the weights of the connections between the neuron 
+        // and the neurons in the previous layer 
+        // ---> we consider the input spikes
+        let mut extra_weights_sum = 0.0;
+        for (j, weight) in self.extra_weights[i].iter().enumerate() {
+          extra_weights_sum += weight * input_spikes[j] as f64;
+        }
+
+        // compute the sum of the weights of the connections between the neuron
+        // and the neurons in the same layer
+        // ---> we consider the output spikes of the previous time instant
+        // - !!! ATTENTION to not consider the reflexive links from a neuron to itself !!!
+        let mut intra_weights_sum = 0.0;
+        for (j, weight) in self.intra_weights[i].iter().enumerate() {
+          if i != j {
+            intra_weights_sum += weight * self.prev_output[j] as f64;
+          }
+        }
+        
+        // QUESTION: what about the lost 00000?
+        // . . .
+        // . . .
+        // . . .
+
+        
+        
+
+        // update the flag to send the output spikes to the next layer
+        if all_zero && spike == 1 {
+          all_zero = false;
+        }
+      }
+
+
+      // if at least one spike in the input vector is 1
+      // then the output spikes are sent to the next layer
+      if !all_zero{
+
+        let output = SpikeEvent::new(timestamp, output_spikes);
+        output_tx.send(output).unwrap();
+      } 
+    }
+  }
 
 }
