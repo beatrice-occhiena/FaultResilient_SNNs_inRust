@@ -10,4 +10,8 @@ impl SpikeEvent {
             t,spikes
         }
     }
+
+    // Getters
+    pub fn get_t(&self) -> u64 { self.t }
+    pub fn get_spikes(&self) -> &Vec<u8> { &self.spikes }
 }
