@@ -50,7 +50,9 @@ impl Neuron for Lif {
             0
         }
     }
-    fn configure(&mut self) {
+
+    // Reset the membrane potential to the resting potential and the time instant to 0
+    fn reset(&mut self) {
         self.membrane_potential = self.resting_potential;
         self.ts = 0;
     }
