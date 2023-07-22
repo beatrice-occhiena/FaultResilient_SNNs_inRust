@@ -25,6 +25,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     let num_n_same = intra_weights.len();
 
     // check the number of neurons for the layer is consistent with the number of rows in the weights matrices
+    // #to_do: check if the check is correct
     if num_n_prev != num_n || num_n_same != num_n 
     {
       panic!("The number of neurons in the layer is not consistent with the number of rows in the weights matrices.");
@@ -90,7 +91,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
       let input_spikes = input.get_spikes();
       let mut output_spikes = Vec::<u8>::with_capacity(self.neurons.len());
 
-      // if all the spikes in the input vector are 0
+      // if all the spikes in the output vector are 0
       // then there is no need to send the output spikes to the next layer
       let mut all_zero = true;
 
@@ -117,17 +118,24 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
             intra_weights_sum += weight * self.prev_output[j] as f64;
           }
         }
-        
-        // QUESTION: what about the lost 00000?
-        // . . .
-        // . . .
-        // . . .
 
+        // extra = positive contribute
+        // intra = negative contribute
+        // #to_do: check if the sign is correct given the trained data
+        let weights_sum = extra_weights_sum + intra_weights_sum;
         
-        
+        // QUESTION: what about the effect of the discrded all_zero output vector
+        // on the intra_weights_sum?
+        // . . .
+        // #to_do
+
+        // compute the membrane potential and check if it spikes
+        // and update the output spikes vector
+        let spike = neuron.compute_v_mem(timestamp, weights_sum);
+        output_spikes.push(spike);
 
         // update the flag to send the output spikes to the next layer
-        if all_zero && spike == 1 {
+        if all_zero && spike == 1u8 {
           all_zero = false;
         }
       }
