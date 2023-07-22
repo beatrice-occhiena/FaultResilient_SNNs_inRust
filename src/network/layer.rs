@@ -123,11 +123,6 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         // intra = negative contribute
         // #to_do: check if the sign is correct given the trained data
         let weights_sum = extra_weights_sum + intra_weights_sum;
-        
-        // QUESTION: what about the effect of the discrded all_zero output vector
-        // on the intra_weights_sum?
-        // . . .
-        // #to_do
 
         // compute the membrane potential and check if it spikes
         // and update the output spikes vector
@@ -140,6 +135,9 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         }
       }
 
+      // update the output vector of the previous time instant
+      // for the next iteration
+      self.prev_output = output_spikes.clone();
 
       // if at least one spike in the input vector is 1
       // then the output spikes are sent to the next layer
