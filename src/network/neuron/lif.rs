@@ -30,6 +30,7 @@ impl Lif {
     pub fn get_v_mem(&self) -> f64 { self.membrane_potential }
     pub fn get_tau(&self) -> f64 { self.tau }
     pub fn get_ts(&self) -> u64 { self.ts }
+    
     // Setters for potential parameters of Lif
     pub fn set_v_reset(&mut self, new_v_reset: f64) -> () { self.reset_potential = new_v_reset }
     pub fn set_v_rest(&mut self, new_v_rest: f64) -> () { self.resting_potential = new_v_rest }
@@ -37,6 +38,14 @@ impl Lif {
 }
 
 impl Neuron for Lif {
+    
+    /**
+        Computes the membrane potential of the neuron at the time instant t
+        and returns 1 if the neuron spikes, 0 otherwise.
+        - @param time (u64)
+        - @param weights_sum (f64) #to_do: check if it is correct
+        - @return u8 (0/1)
+     */
     fn process_input(&mut self, time: u64, weights_sum: f64) -> u8 {
         let dt = (time - self.ts) as f64; // time interval between two input spikes
         let exponential = (-dt/self.tau) as f64;
@@ -52,7 +61,7 @@ impl Neuron for Lif {
     }
 
     // Reset the membrane potential to the resting potential and the time instant to 0
-    fn reset(&mut self) {
+    fn initialize(&mut self) {
         self.membrane_potential = self.resting_potential;
         self.ts = 0;
     }
