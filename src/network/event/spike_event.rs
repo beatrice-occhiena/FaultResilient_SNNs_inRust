@@ -5,6 +5,7 @@ pub struct SpikeEvent {
 }
 
 impl SpikeEvent {
+    
     pub fn new(t: u64, spikes: Vec<u8>) -> Self {
         SpikeEvent {
             t,spikes
@@ -14,4 +15,5 @@ impl SpikeEvent {
     // Getters
     pub fn get_t(&self) -> u64 { self.t }
     pub fn get_spikes(&self) -> &Vec<u8> { &self.spikes }
+
 }

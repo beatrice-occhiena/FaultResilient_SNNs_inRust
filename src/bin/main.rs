@@ -10,6 +10,6 @@ fn main() {
     println!("{:?}", l);
     l.set_v_reset(0.5);
     println!("{:?}", l);
-    let spike = l.compute_v_mem(1,10.6);
+    let spike = l.process_input(1,10.6);
     println!("spike = {}", spike);
 }

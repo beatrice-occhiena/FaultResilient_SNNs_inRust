@@ -126,7 +126,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
 
         // compute the membrane potential and check if it spikes
         // and update the output spikes vector
-        let spike = neuron.compute_v_mem(timestamp, weights_sum);
+        let spike = neuron.process_input(timestamp, weights_sum);
         output_spikes.push(spike);
 
         // update the flag to send the output spikes to the next layer

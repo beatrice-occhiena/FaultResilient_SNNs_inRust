@@ -37,7 +37,7 @@ impl Lif {
 }
 
 impl Neuron for Lif {
-    fn compute_v_mem(&mut self, time: u64, weights_sum: f64) -> u8 {
+    fn process_input(&mut self, time: u64, weights_sum: f64) -> u8 {
         let dt = (time - self.ts) as f64; // time interval between two input spikes
         let exponential = (-dt/self.tau) as f64;
         self.membrane_potential = self.resting_potential + (self.membrane_potential - self.resting_potential) * exponential.exp() + weights_sum;
