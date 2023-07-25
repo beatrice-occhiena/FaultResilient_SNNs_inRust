@@ -81,19 +81,19 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
     @return Vec<SpikeEvent>
    */
-  fn derive_input_spike_events(&self, spikes: &Vec<Vec<u8>>) -> Vec<SpikeEvent> {
+  fn derive_input_spike_events(&self, input_spikes: &Vec<Vec<u8>>) -> Vec<SpikeEvent> {
     
     let mut spike_events: Vec<SpikeEvent> = Vec::new();
 
     // check the number of input neurons is consistent with the number of rows in the input spikes matrix
-    if self.get_input_layer_num_neurons() != spikes.len() {
+    if self.get_input_layer_num_neurons() != input_spikes.len() {
       panic!("The number of input neurons is not consistent with the number of rows in the input spikes matrix.");
     }
 
     // check the number of columns in the input spikes matrix is consistent for all the rows
-    let num_time_steps = spikes[0].len();
-    for i in 1..spikes.len() {
-      if spikes[i].len() != num_time_steps {
+    let num_time_steps = input_spikes[0].len();
+    for i in 1..input_spikes.len() {
+      if input_spikes[i].len() != num_time_steps {
         panic!("The number of columns in the input spikes matrix is not consistent for all the rows.");
       }
     }
