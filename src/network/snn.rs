@@ -4,6 +4,8 @@ use crate::network::layer::Layer;
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
 
+use super::event::spike_event;
+
 #[derive(Debug)]
 pub struct SNN < N: Neuron + Clone + Send + 'static >
 {
@@ -29,6 +31,10 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     self.layers[0].lock().unwrap().get_num_neurons()
   }
 
+  fn get_output_layer_num_neurons(&self) -> usize {
+    self.layers[self.layers.len()-1].lock().unwrap().get_num_neurons()
+  }
+
   // #to_do: complete here
 
   /**
@@ -48,14 +54,33 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
    */
   pub fn process_input(&self, spikes: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
 
-    // ...
+    // convert the input spikes into spike events
+    let input_spike_events = self.generate_input_spike_events(spikes);
 
-    let num_time_steps = spikes[0].len();
+    // process the input spike events
+    let output_spike_events = self.process_input_spike_events(&input_spike_events);
 
+    // convert the output spike events into output spikes
+    let output_spikes = self.generate_output_spikes(&output_spike_events);
 
-    
+    output_spikes   
   }
 
+  /**
+    It converts the input spikes into spike events:
+    - Spike Events are composed by vertical slices of the input spikes matrix
+    - Each vertical slice is a vector of 0/1 representing the spikes received by each input neuron at a given time instant
+
+    The method also checks the consistency of the input spikes matrix:
+    - The number of input neurons must be consistent with the number of rows in the input spikes matrix
+    - The number of columns in the input spikes matrix must be consistent for all the rows
+    - The value of the spike must be either 0 or 1
+
+    @param spikes (&Vec<Vec<u8>>)
+    The input of the SNN is a matrix of 0/1, where each row represents the array of spikes received by each input neuron.
+
+    @return Vec<SpikeEvent>
+   */
   fn generate_input_spike_events(&self, spikes: &Vec<Vec<u8>>) -> Vec<SpikeEvent> {
     
     let mut spike_events: Vec<SpikeEvent> = Vec::new();
@@ -74,9 +99,6 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     }
 
     // generate the spike events
-    // -------------------------
-    // spike events are composed by vertical slices of the input spikes matrix
-    // each vertical slice is a vector of 0/1 representing the spikes received by each input neuron at a given time instant
     for t in 0..num_time_steps {
 
       let mut spikes_t: Vec<u8> = Vec::new();
@@ -97,5 +119,31 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
     spike_events
   }
+
+  /**
+    This method converts the final output spike events (resulting from the final inference)
+    into a matrix of 0/1, where each row represents the array of spikes produced by each output neuron.
+
+    It can be cconsidered as the inverse of the generate_input_spike_events method.
+    
+    @param output_spike_events (&Vec<SpikeEvent>)
+    @return Vec<Vec<u8>>
+   */
+  fn generate_output_spikes(&self, output_spike_events: &Vec<SpikeEvent>) -> Vec<Vec<u8>> {
+
+    let num_rows = self.get_output_layer_num_neurons();
+    let num_cols = output_spike_events.len();
+    let mut output_spikes: Vec<Vec<u8>> = vec![vec![0; num_cols]; num_rows];
+
+    // generate the output spikes
+    for spike_event in output_spike_events {
+      for (n, spike) in spike_event.get_spikes().iter().enumerate() {
+        output_spikes[n][spike_event.get_t() as usize] = *spike;
+      }
+    }
+  
+    output_spikes
+  }
+  
 
 }
