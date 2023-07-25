@@ -47,7 +47,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
         => the number of columns represents the duration of the input
         => we have to set a quantization of the time considering:
             - a counter that increases at each time step (saved in each SpikeEvent struct)
-            - the duration of the time step
+            - the dt duration of the time step
 
     @return Vec<Vec<u8>>
     The output of the SNN is a matrix of 0/1, where each row represents the array of spikes produced by each output neuron.
@@ -55,13 +55,13 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
   pub fn process_input(&self, spikes: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
 
     // convert the input spikes into spike events
-    let input_spike_events = self.generate_input_spike_events(spikes);
+    let input_spike_events = self.derive_input_spike_events(spikes);
 
     // process the input spike events
     let output_spike_events = self.process_input_spike_events(&input_spike_events);
 
     // convert the output spike events into output spikes
-    let output_spikes = self.generate_output_spikes(&output_spike_events);
+    let output_spikes = self.derive_output_spikes(&output_spike_events);
 
     output_spikes   
   }
@@ -81,7 +81,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
     @return Vec<SpikeEvent>
    */
-  fn generate_input_spike_events(&self, spikes: &Vec<Vec<u8>>) -> Vec<SpikeEvent> {
+  fn derive_input_spike_events(&self, spikes: &Vec<Vec<u8>>) -> Vec<SpikeEvent> {
     
     let mut spike_events: Vec<SpikeEvent> = Vec::new();
 
@@ -98,7 +98,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
       }
     }
 
-    // generate the spike events
+    // derive the spike events
     for t in 0..num_time_steps {
 
       let mut spikes_t: Vec<u8> = Vec::new();
@@ -125,17 +125,17 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     into a matrix of 0/1, where each row represents the array of spikes produced by each output neuron.
 
     It can be cconsidered as the inverse of the generate_input_spike_events method.
-    
+
     @param output_spike_events (&Vec<SpikeEvent>)
     @return Vec<Vec<u8>>
    */
-  fn generate_output_spikes(&self, output_spike_events: &Vec<SpikeEvent>) -> Vec<Vec<u8>> {
+  fn derive_output_spikes(&self, output_spike_events: &Vec<SpikeEvent>) -> Vec<Vec<u8>> {
 
     let num_rows = self.get_output_layer_num_neurons();
     let num_cols = output_spike_events.len();
     let mut output_spikes: Vec<Vec<u8>> = vec![vec![0; num_cols]; num_rows];
 
-    // generate the output spikes
+    // derive the output spikes
     for spike_event in output_spike_events {
       for (n, spike) in spike_event.get_spikes().iter().enumerate() {
         output_spikes[n][spike_event.get_t() as usize] = *spike;
