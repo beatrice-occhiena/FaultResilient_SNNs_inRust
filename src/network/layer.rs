@@ -61,12 +61,12 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
   }
 
   // Setters
-  fn reset (&mut self) {
+  fn initialize (&mut self) {
     self.prev_output.clear();
     self.prev_output = vec![0; self.neurons.len()];
     
     for neuron in self.neurons.iter_mut() {
-      neuron.reset();
+      neuron.initialize();
     }
   }
 
@@ -81,7 +81,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     
     // reset the neurons in the layer to reuse the SNN
     // for future inferences without building a new one
-    self.reset();
+    self.initialize();
 
     // listen to the input spikes from the previous layer
     // until an Err is received (the channel is closed)

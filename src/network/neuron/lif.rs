@@ -46,10 +46,10 @@ impl Neuron for Lif {
         - @param weights_sum (f64) #to_do: check if it is correct
         - @return u8 (0/1)
      */
-    fn process_input(&mut self, time: u64, weights_sum: f64) -> u8 {
+    fn process_input(&mut self, time: u64, weighted_sum: f64) -> u8 {
         let dt = (time - self.ts) as f64; // time interval between two input spikes
         let exponential = (-dt/self.tau) as f64;
-        self.membrane_potential = self.resting_potential + (self.membrane_potential - self.resting_potential) * exponential.exp() + weights_sum;
+        self.membrane_potential = self.resting_potential + (self.membrane_potential - self.resting_potential) * exponential.exp() + weighted_sum;
         self.ts = time;
         if self.membrane_potential > self.threshold {
             self.membrane_potential = self.reset_potential;
