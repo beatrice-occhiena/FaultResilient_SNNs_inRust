@@ -1,10 +1,7 @@
-use core::num;
 use std::sync::{Arc, Mutex};
 use crate::network::layer::Layer;
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
-
-use super::event::spike_event;
 
 #[derive(Debug)]
 pub struct SNN < N: Neuron + Clone + Send + 'static >
@@ -104,9 +101,9 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
       let mut spikes_t: Vec<u8> = Vec::new();
       
       // generate the vertical slice
-      for n in 0..spikes.len() {
+      for n in 0..input_spikes.len() {
         
-        let spike = spikes[n][t];
+        let spike = input_spikes[n][t];
         // check the value of the spike is consistent
         if spike != 0 && spike != 1 {
           panic!("The value of the spike is neither 0 nor 1.");
