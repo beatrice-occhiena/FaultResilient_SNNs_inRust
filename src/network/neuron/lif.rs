@@ -12,7 +12,7 @@ pub struct Lif{
 }
 
 impl Lif {
-    pub fn new(reset_potential: f64, resting_potential: f64, threshold: f64, membrane_potential: f64, tau: f64, ts: u64) -> Self {
+    pub fn new(reset_potential: f64, resting_potential: f64, threshold: f64, tau: f64) -> Self {
         Lif {
             reset_potential,
             resting_potential,
