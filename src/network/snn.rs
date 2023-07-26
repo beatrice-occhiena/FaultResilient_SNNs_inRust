@@ -2,9 +2,11 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 use std::sync::mpsc::channel;
+use std::sync::mpsc::{Sender, Receiver};
 use crate::network::layer::Layer;
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
+
 
 #[derive(Debug)]
 pub struct SNN < N: Neuron + Clone + Send + 'static >
@@ -35,8 +37,6 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     self.layers[self.layers.len()-1].lock().unwrap().get_num_neurons()
   }
 
-  // #to_do: complete here
-
   /**
     It processes input spikes and produces the resulting output spikes
       => final inference
@@ -57,79 +57,20 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
    */
   pub fn process_input(&self, spikes: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
 
-    // convert the input spikes into spike events
+    // PRE-PROCESSING: convert the input spikes into spike events
     let input_spike_events = self.derive_input_spike_events(spikes);
 
-    // process the input spike events
+    // PARALLEL PROCESSING: process the input spike events
     let output_spike_events = self.process_input_spike_events(input_spike_events);
 
-    // convert the output spike events into output spikes
+    // POST-PROCESSING: convert the output spike events into output spikes
     let output_spikes = self.derive_output_spikes(&output_spike_events);
 
     output_spikes   
   }
-  
-  fn process_input_spike_events(&self, input_spike_events: Vec<SpikeEvent>) -> Vec<SpikeEvent> {
 
-    let mut thread_handles = Vec::<JoinHandle<()>>::new();
-
-    // create the first channel for the input
-    let (input_tx, mut layer_rc) = channel::<SpikeEvent>();    
-
-    for layer in self.layers.iter() {
-
-      // clone the Arc pointer to the layer 
-      let layer = layer.clone();
-
-      // create another channel for its communication with the next layer
-      let (layer_tx, next_layer_rc) = channel::<SpikeEvent>();
-      
-      // create a new thread
-      let handle = thread::spawn(move || {
-        let mut layer = layer.lock().unwrap();
-        layer.process_input(layer_rc,layer_tx);
-      });
-
-      // push the handle in the vector
-      thread_handles.push(handle);
-
-      // update the channel for the next layer
-      layer_rc = next_layer_rc;
-    }
-
-    // the last channel is the output channel
-    let output_rc = layer_rc;
-
-    // send the input spike events to the first layer
-    // (only if there is at least one spike with value 1)
-    for spike_event in input_spike_events {
-      if spike_event.get_spikes().iter().any(|&spike| spike == 1) {
-
-        let time_istant = spike_event.get_t();
-
-        input_tx.send(spike_event)
-          .expect(&format!("Failed to send the input spike event to the first layer at t = {}.", time_istant));
-      }
-    }
-
-    // close the input channel to terminate the communication
-    drop(input_tx);
-
-    // wait for the threads to finish
-    for handle in thread_handles {
-      handle.join().unwrap();
-    }
-
-    // receive the output spike events from the last layer
-    let mut output_spike_events: Vec<SpikeEvent> = Vec::new();
-    for spike_event in output_rc {
-      output_spike_events.push(spike_event);
-    }
-
-    output_spike_events
-  }
-
-
+  // PRE-PROCESSING PHASE
+  // --------------------
   /**
     It converts the input spikes into spike events:
     - Spike Events are composed by vertical slices of the input spikes matrix
@@ -184,6 +125,165 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     spike_events
   }
 
+  // PARALLEL PROCESSING PHASE
+  // -------------------------
+  /**
+    It processes input spike events and produces the resulting output spike events
+      => final inference
+
+    @param input_spike_events (Vec<SpikeEvent>)
+    The input of the SNN is a vector of SpikeEvent, where each SpikeEvent represents the array of spikes received by each input neuron at a given time instant.
+
+    @return Vec<SpikeEvent>
+    The output of the SNN is a vector of SpikeEvent, where each SpikeEvent represents the array of spikes produced by each output neuron at a given time instant.
+   */
+  #[allow(dead_code)]
+  fn verbose_process_input_spike_events(&self, input_spike_events: Vec<SpikeEvent>) -> Vec<SpikeEvent> {
+
+    let mut thread_handles = Vec::<JoinHandle<()>>::new();
+
+    // create the first channel for the input
+    let (input_tx, mut layer_rc) = channel::<SpikeEvent>();    
+
+    // for each layer create a new thread and process the input
+    for layer in self.layers.iter() {
+
+      // clone the Arc pointer to the layer 
+      let layer = layer.clone();
+
+      // create another channel for its communication with the next layer
+      let (layer_tx, next_layer_rc) = channel::<SpikeEvent>();
+      
+      // create a new thread
+      let handle = thread::spawn(move || {
+        let mut layer = layer.lock().unwrap();
+        layer.process_input(layer_rc,layer_tx);
+      });
+
+      // push the handle in the vector
+      thread_handles.push(handle);
+
+      // update the channel for the next layer
+      layer_rc = next_layer_rc;
+    }
+
+    // the last channel is the output channel
+    let output_rc = layer_rc;
+
+    // send the input spike events to the first layer
+    // (only if there is at least one spike with value 1)
+    for spike_event in input_spike_events {
+      if spike_event.get_spikes().iter().any(|&spike| spike == 1) {
+
+        let time_istant = spike_event.get_t();
+
+        input_tx.send(spike_event)
+          .expect(&format!("Failed to send the input spike event to the first layer at t = {}.", time_istant));
+      }
+    }
+
+    // close the input channel to terminate the communication
+    drop(input_tx);
+
+    // wait for the threads to finish
+    for handle in thread_handles {
+      handle.join().unwrap();
+    }
+
+    // receive the output spike events from the last layer
+    let mut output_spike_events: Vec<SpikeEvent> = Vec::new();
+    for spike_event in output_rc {
+      output_spike_events.push(spike_event);
+    }
+
+    output_spike_events
+  }
+
+  fn process_input_spike_events(&self, input_spike_events: Vec<SpikeEvent>) -> Vec<SpikeEvent> {
+    
+    // Step 1: create the first channel for the input
+    let (input_tx, layer_rc) = channel::<SpikeEvent>();
+
+    // Step 2: Create and spawn threads
+    let (thread_handles, output_rc) = self.create_and_spawn_threads(layer_rc);
+
+    // Step 3: Send input spike events to the first layer
+    SNN::<N>::send_input_spike_events(input_spike_events, &input_tx);
+
+    // Step 4: Wait for the threads to finish
+    SNN::<N>::wait_for_threads(thread_handles);
+
+    // Step 5: Receive output spike events from the last layer
+    SNN::<N>::receive_output_spike_events(output_rc)
+  }
+
+  fn create_and_spawn_threads(&self, layer_rc: Receiver<SpikeEvent>) -> (Vec<JoinHandle<()>>, Receiver<SpikeEvent>) {
+    
+    let mut curr_layer_rc = layer_rc;
+    
+    let mut thread_handles = Vec::<JoinHandle<()>>::new();
+    
+    // for each layer create a new thread and activate the processing of the input
+    for layer in self.layers.iter() {
+        // clone the Arc pointer to the layer 
+        let layer = layer.clone();
+
+        // create another channel for its communication with the next layer
+        let (curr_layer_tx, next_layer_rc) = channel::<SpikeEvent>();
+
+        // create a new thread
+        let handle = thread::spawn(move || {
+            let mut layer = layer.lock().unwrap();
+            layer.process_input(curr_layer_rc,curr_layer_tx);
+        });
+
+        // push the handle in the vector
+        thread_handles.push(handle);
+
+        // update the channel for the next layer
+        curr_layer_rc = next_layer_rc;
+    }
+
+    // the last channel is the output channel
+    let output_rc = curr_layer_rc;
+
+    (thread_handles, output_rc)
+}
+
+fn send_input_spike_events(input_spike_events: Vec<SpikeEvent>, input_tx: &Sender<SpikeEvent>) {
+    // send the input spike events to the first layer
+    // (only if there is at least one spike with value 1)
+    for spike_event in input_spike_events {
+        if spike_event.get_spikes().iter().any(|&spike| spike == 1) {
+            let time_istant = spike_event.get_t();
+
+            input_tx
+                .send(spike_event)
+                .expect(&format!("Failed to send the input spike event to the first layer at t = {}.", time_istant));
+        }
+    }
+}
+
+fn wait_for_threads(thread_handles: Vec<JoinHandle<()>>) {
+    // wait for the threads to finish
+    for handle in thread_handles {
+        handle.join().unwrap();
+    }
+}
+
+fn receive_output_spike_events(layer_rc: Receiver<SpikeEvent>) -> Vec<SpikeEvent> {
+    // receive the output spike events from the last layer
+    let mut output_spike_events: Vec<SpikeEvent> = Vec::new();
+    for spike_event in layer_rc {
+        output_spike_events.push(spike_event);
+    }
+
+    output_spike_events
+}
+
+
+  // POST-PROCESSING PHASE
+  // ---------------------
   /**
     This method converts the final output spike events (resulting from the final inference)
     into a matrix of 0/1, where each row represents the array of spikes produced by each output neuron.
