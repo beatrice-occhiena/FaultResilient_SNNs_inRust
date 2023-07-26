@@ -1,4 +1,7 @@
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::thread::JoinHandle;
+use std::sync::mpsc::channel;
 use crate::network::layer::Layer;
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
@@ -45,6 +48,9 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
         => we have to set a quantization of the time considering:
             - a counter that increases at each time step (saved in each SpikeEvent struct)
             - the dt duration of the time step
+    
+    In the pre-processing phase, the input spikes are converted into spike events 
+    while checking their consistency.
 
     @return Vec<Vec<u8>>
     The output of the SNN is a matrix of 0/1, where each row represents the array of spikes produced by each output neuron.
@@ -55,13 +61,74 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     let input_spike_events = self.derive_input_spike_events(spikes);
 
     // process the input spike events
-    let output_spike_events = self.process_input_spike_events(&input_spike_events);
+    let output_spike_events = self.process_input_spike_events(input_spike_events);
 
     // convert the output spike events into output spikes
     let output_spikes = self.derive_output_spikes(&output_spike_events);
 
     output_spikes   
   }
+  
+  fn process_input_spike_events(&self, input_spike_events: Vec<SpikeEvent>) -> Vec<SpikeEvent> {
+
+    let mut thread_handles = Vec::<JoinHandle<()>>::new();
+
+    // create the first channel for the input
+    let (input_tx, mut layer_rc) = channel::<SpikeEvent>();    
+
+    for layer in self.layers.iter() {
+
+      // clone the Arc pointer to the layer 
+      let layer = layer.clone();
+
+      // create another channel for its communication with the next layer
+      let (layer_tx, next_layer_rc) = channel::<SpikeEvent>();
+      
+      // create a new thread
+      let handle = thread::spawn(move || {
+        let mut layer = layer.lock().unwrap();
+        layer.process_input(layer_rc,layer_tx);
+      });
+
+      // push the handle in the vector
+      thread_handles.push(handle);
+
+      // update the channel for the next layer
+      layer_rc = next_layer_rc;
+    }
+
+    // the last channel is the output channel
+    let output_rc = layer_rc;
+
+    // send the input spike events to the first layer
+    // (only if there is at least one spike with value 1)
+    for spike_event in input_spike_events {
+      if spike_event.get_spikes().iter().any(|&spike| spike == 1) {
+
+        let time_istant = spike_event.get_t();
+
+        input_tx.send(spike_event)
+          .expect(&format!("Failed to send the input spike event to the first layer at t = {}.", time_istant));
+      }
+    }
+
+    // close the input channel to terminate the communication
+    drop(input_tx);
+
+    // wait for the threads to finish
+    for handle in thread_handles {
+      handle.join().unwrap();
+    }
+
+    // receive the output spike events from the last layer
+    let mut output_spike_events: Vec<SpikeEvent> = Vec::new();
+    for spike_event in output_rc {
+      output_spike_events.push(spike_event);
+    }
+
+    output_spike_events
+  }
+
 
   /**
     It converts the input spikes into spike events:
