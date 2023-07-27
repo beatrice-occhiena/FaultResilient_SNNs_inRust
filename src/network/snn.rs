@@ -30,7 +30,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
   }
 
   fn get_input_layer_num_neurons(&self) -> usize {
-    self.layers[0].lock().unwrap().get_num_neurons()
+    self.layers[0].lock().unwrap().get_extra_weights().first().unwrap().len()
   }
 
   fn get_output_layer_num_neurons(&self) -> usize {
@@ -62,9 +62,10 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
     // PARALLEL PROCESSING: process the input spike events
     let output_spike_events = self.process_input_spike_events(input_spike_events);
+    //let output_spike_events = self.verbose_process_input_spike_events(input_spike_events);
 
     // POST-PROCESSING: convert the output spike events into output spikes
-    let output_spikes = self.derive_output_spikes(&output_spike_events);
+    let output_spikes = self.derive_output_spikes(&output_spike_events, spikes.first().unwrap().len());
 
     output_spikes   
   }
@@ -92,6 +93,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
     // check the number of input neurons is consistent with the number of rows in the input spikes matrix
     if self.get_input_layer_num_neurons() != input_spikes.len() {
+      println!("{} - {}", self.get_input_layer_num_neurons(), input_spikes.len());
       panic!("The number of input neurons is not consistent with the number of rows in the input spikes matrix.");
     }
 
@@ -192,7 +194,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
     // receive the output spike events from the last layer
     let mut output_spike_events: Vec<SpikeEvent> = Vec::new();
-    for spike_event in output_rc {
+    while let Ok(spike_event) = output_rc.recv() {
       output_spike_events.push(spike_event);
     }
 
@@ -208,7 +210,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     let (thread_handles, output_rc) = self.create_and_spawn_threads(layer_rc);
 
     // Step 3: Send input spike events to the first layer
-    SNN::<N>::send_input_spike_events(input_spike_events, &input_tx);
+    SNN::<N>::send_input_spike_events(input_spike_events, input_tx);
 
     // Step 4: Wait for the threads to finish
     SNN::<N>::wait_for_threads(thread_handles);
@@ -250,7 +252,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     (thread_handles, output_rc)
 }
 
-fn send_input_spike_events(input_spike_events: Vec<SpikeEvent>, input_tx: &Sender<SpikeEvent>) {
+fn send_input_spike_events(input_spike_events: Vec<SpikeEvent>, input_tx: Sender<SpikeEvent>) {
     // send the input spike events to the first layer
     // (only if there is at least one spike with value 1)
     for spike_event in input_spike_events {
@@ -262,6 +264,7 @@ fn send_input_spike_events(input_spike_events: Vec<SpikeEvent>, input_tx: &Sende
                 .expect(&format!("Failed to send the input spike event to the first layer at t = {}.", time_istant));
         }
     }
+    drop(input_tx);
 }
 
 fn wait_for_threads(thread_handles: Vec<JoinHandle<()>>) {
@@ -274,7 +277,7 @@ fn wait_for_threads(thread_handles: Vec<JoinHandle<()>>) {
 fn receive_output_spike_events(layer_rc: Receiver<SpikeEvent>) -> Vec<SpikeEvent> {
     // receive the output spike events from the last layer
     let mut output_spike_events: Vec<SpikeEvent> = Vec::new();
-    for spike_event in layer_rc {
+    while let Ok(spike_event) = layer_rc.recv() {
         output_spike_events.push(spike_event);
     }
 
@@ -293,10 +296,10 @@ fn receive_output_spike_events(layer_rc: Receiver<SpikeEvent>) -> Vec<SpikeEvent
     @param output_spike_events (&Vec<SpikeEvent>)
     @return Vec<Vec<u8>>
    */
-  fn derive_output_spikes(&self, output_spike_events: &Vec<SpikeEvent>) -> Vec<Vec<u8>> {
+  fn derive_output_spikes(&self, output_spike_events: &Vec<SpikeEvent>, spike_len: usize) -> Vec<Vec<u8>> {
 
     let num_rows = self.get_output_layer_num_neurons();
-    let num_cols = output_spike_events.len();
+    let num_cols = spike_len;
     let mut output_spikes: Vec<Vec<u8>> = vec![vec![0; num_cols]; num_rows];
 
     // derive the output spikes
@@ -308,6 +311,5 @@ fn receive_output_spike_events(layer_rc: Receiver<SpikeEvent>) -> Vec<SpikeEvent
   
     output_spikes
   }
-  
 
 }
