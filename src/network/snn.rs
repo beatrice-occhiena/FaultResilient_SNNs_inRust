@@ -288,7 +288,7 @@ fn receive_output_spike_events(layer_rc: Receiver<SpikeEvent>) -> Vec<SpikeEvent
     This method converts the final output spike events (resulting from the final inference)
     into a matrix of 0/1, where each row represents the array of spikes produced by each output neuron.
 
-    It can be cconsidered as the inverse of the generate_input_spike_events method.
+    It can be considered as the inverse of the generate_input_spike_events method.
 
     @param output_spike_events (&Vec<SpikeEvent>)
     @return Vec<Vec<u8>>

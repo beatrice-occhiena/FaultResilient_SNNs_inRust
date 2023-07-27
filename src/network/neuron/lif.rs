@@ -38,7 +38,6 @@ impl Lif {
 }
 
 impl Neuron for Lif {
-    
     /**
         Computes the membrane potential of the neuron at the time instant t
         and returns 1 if the neuron spikes, 0 otherwise.
@@ -53,7 +52,7 @@ impl Neuron for Lif {
         self.ts = time;
         if self.membrane_potential > self.threshold {
             self.membrane_potential = self.reset_potential;
-            1 // spike only in if v_mem > v_th
+            1 // spike only if v_mem > v_th
         }
         else {
             0
@@ -64,5 +63,18 @@ impl Neuron for Lif {
     fn initialize(&mut self) {
         self.membrane_potential = self.resting_potential;
         self.ts = 0;
+    }
+}
+
+impl Clone for Lif {
+    fn clone(&self) -> Self {
+        Lif {
+            reset_potential: self.reset_potential,
+            resting_potential: self.resting_potential,
+            threshold: self.threshold,
+            membrane_potential: self.membrane_potential,
+            tau: self.tau,
+            ts: self.ts,
+        }
     }
 }
