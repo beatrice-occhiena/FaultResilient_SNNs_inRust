@@ -93,7 +93,6 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
     // check the number of input neurons is consistent with the number of rows in the input spikes matrix
     if self.get_input_layer_num_neurons() != input_spikes.len() {
-      println!("{} - {}", self.get_input_layer_num_neurons(), input_spikes.len());
       panic!("The number of input neurons is not consistent with the number of rows in the input spikes matrix.");
     }
 

@@ -11,6 +11,7 @@ use crate::network::snn::SNN;
     - Extra-weights and intra-weights
  **/
 
+#[derive(Clone)]
 pub struct ParametersBuilder<N: Neuron> { //struct that contains all the parameters describing the network
     input_length: usize,                // dimension of the network input layer
     neurons: Vec<Vec<N>>,               // neurons in each layer
@@ -19,6 +20,20 @@ pub struct ParametersBuilder<N: Neuron> { //struct that contains all the paramet
     num_layers: usize,                  // number of layers
 }
 
+impl<N: Neuron + Clone> ParametersBuilder<N> {
+    // Getters for builder parameters
+    pub fn get_neurons(&self) -> Vec<Vec<N>> {
+        self.neurons.clone()
+    }
+    pub fn get_extra_weights(&self) -> Vec<Vec<Vec<f64>>> {
+        self.extra_weights.clone()
+    }
+    pub fn get_intra_weights(&self) -> Vec<Vec<Vec<f64>>> {
+        self.intra_weights.clone()
+    }
+}
+
+#[derive(Clone)]
 pub struct SNNBuilder<N: Neuron> {
     parameters: ParametersBuilder<N>
 }
@@ -34,6 +49,10 @@ impl<N: Neuron + Clone + Send> SNNBuilder<N> {
                 num_layers: 0
             }
         }
+    }
+
+    pub fn get_parameters(&self) -> ParametersBuilder<N> {
+        self.parameters.clone()
     }
 
     fn check_intra_weights(&self, intra_weights: &Vec<Vec<f64>>, neurons_len: usize) {
@@ -77,7 +96,7 @@ impl<N: Neuron + Clone + Send> SNNBuilder<N> {
 
     /**
         This method receives all the data for building a layer (neurons and intra and extra layer weights)
-        and checks its consistency
+        and checks its consistency (at run-time)
      **/
     pub fn add_layer(self, neurons: Vec<N>, extra_weights: Vec<Vec<f64>>, intra_weights: Vec<Vec<f64>>) -> Self{
         // intra weights consistency check
@@ -98,7 +117,8 @@ impl<N: Neuron + Clone + Send> SNNBuilder<N> {
     }
 
     /**
-        This method builds the SNN from the information collected so far by the SNNBuilder
+        This method builds each layer of the SNN from the information collected
+        by the SNNBuilder (neurons and weights)
     */
     pub fn build(self) -> SNN<N> {
         if self.parameters.num_layers == 0 {
