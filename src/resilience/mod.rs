@@ -1,4 +1,5 @@
 pub mod analysis;
 pub mod components;
-pub mod fault_model;
+pub mod fault_models;
 pub mod simulation;
+pub mod gui;
