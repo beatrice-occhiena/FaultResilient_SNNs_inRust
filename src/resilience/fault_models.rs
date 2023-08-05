@@ -1,10 +1,11 @@
 /* Module for fault models */
 
 use rand::Rng;
+use crate::resilience::components::ComponentType;
 
 // Enum representing the different fault types
 #[derive(Debug, Clone, Copy)]
-enum FaultType {
+pub enum FaultType {
     StuckAt0,
     StuckAt1,
     TransientBitFlip,
@@ -31,3 +32,12 @@ fn generate_fault(num_components: usize, num_bits_per_component: usize, fault_ty
         fault_type,
     }
 }
+
+// Struct representing a fault model
+#[derive(Debug, Clone, Copy)]
+pub struct FaultModel {
+    components: Vec<ComponentType>,
+    fault_type: FaultType,
+    num_faults: usize,
+}
+

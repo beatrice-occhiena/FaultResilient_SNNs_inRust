@@ -1,12 +1,7 @@
 
-// Enum to represent the type of component for verification
-enum ComponentType {
-  Connection,
-  MemoryArea,
-  InternalProcessingBlock,
-}
 
-/**
+/** Enum to represent the type of component for verification
+ * 
 The "**connections between neurons**" are represented by the 
   - **`extra_weights`** and
   - **`intra_weights`** 
@@ -34,12 +29,22 @@ These faults can be of the stuck-at-0, stuck-at-1, or transient bit-flip type, a
 For instance, simulating a stuck-at-1 fault in the threshold comparator would mean the neuron always spikes, even when 
 the threshold condition is not met.
 */
-enum Connection {
+
+#[derive(Debug, Clone, Copy)]
+pub enum ComponentType {
+  Connection(ConnectionType),
+  MemoryArea(MemoryAreaType),
+  InternalProcessingBlock(InternalProcessingBlockType),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ConnectionType {
   Extra,
   Intra,
 }
 
-enum MemoryArea {
+#[derive(Debug, Clone, Copy)]
+pub enum MemoryAreaType {
   ResetPotential,
   RestingPotential,
   Threshold,
@@ -48,11 +53,11 @@ enum MemoryArea {
   Ts,
 }
 
-enum InternalProcessingBlock {
+#[derive(Debug, Clone, Copy)]
+pub enum InternalProcessingBlockType {
   Adder,
   Multiplier,
   ThresholdComparison,
 }
 
-
-// Define a struct to hold information about the components to verify
+ComponentType::Connection(ConnectionType::Extra);
