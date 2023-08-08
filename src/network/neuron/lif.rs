@@ -2,7 +2,7 @@ use crate::network::neuron::neuron::Neuron;
 // Implements the Neuron trait with the leaky integrate-and-fire (LIF) model.
 
 #[derive(Debug)]
-pub struct Lif{
+pub struct Lif {
     reset_potential: f64, // reset potential
     resting_potential: f64, // resting potential
     threshold: f64, // threshold potential
