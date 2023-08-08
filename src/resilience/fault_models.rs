@@ -41,3 +41,10 @@ pub struct FaultModel {
     num_faults: usize,
 }
 
+
+fn stuck_at_0_fault<T: std::ops::BitAnd + std::ops::Not + From<u8>>(var: T) -> T {
+    let num_bits = std::mem::size_of::<T>() * 8;
+    let mut rng = rand::thread_rng();
+    let bit_to_stuck = rng.gen_range(0..num_bits);
+    var & !(T::from(1u8) << bit_to_stuck)
+}
