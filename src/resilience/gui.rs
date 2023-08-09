@@ -1,5 +1,5 @@
-
 // possible GUI implementation with iced
+
 use iced::{alignment};
 use iced::theme;
 use iced::widget::{
@@ -10,7 +10,7 @@ use iced::widget::{Button, Column, Container};
 use iced::{Color, Element, Length, Sandbox, Settings};
 
 pub fn main() -> iced::Result {
-    env_logger::init();
+    //env_logger::init();
     Tour::run(Settings::default())
 }
 
@@ -372,7 +372,7 @@ impl<'a> Step {
 
     fn num_faults(value: &str) -> Column<'a, StepMessage> { //OK
         let question = column![text("Type the number of faults you want to insert:").size(20)];
-        let text_input = text_input("Type something to continue...", value)
+        let text_input = text_input("Type something to continue...", value, /* on_change */)
             .on_input(StepMessage::InputChanged)
             .padding(10)
             .size(30);
