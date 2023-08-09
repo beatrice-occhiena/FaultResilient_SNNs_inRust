@@ -4,7 +4,7 @@ use rand::Rng; // Import random number generator
 use crate::resilience::components::{ComponentType, ComponentCategory};
 
 // Enum representing the different fault types
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FaultType {
     StuckAt0,
     StuckAt1,
@@ -12,10 +12,11 @@ pub enum FaultType {
 }
 
 // Struct representing a fault occurrence with its properties
+#[derive(Debug, Clone, Copy)]
 pub struct InjectedFault {
     // FAULT PROPERTIES
     fault_type: FaultType,
-    time_step: Option<u64>,                 // Time step at which the fault must be injected (for transient bit-flip faults only)
+    time_step: Option<usize>,                 // Time step at which the fault must be injected (for transient bit-flip faults only)
     // FAULT LOCATION
     layer_index: usize,                     // Layer index of the component in which the fault must be injected
     component_category: ComponentCategory,  // Category of component in which the fault must be injected
@@ -26,7 +27,7 @@ pub struct InjectedFault {
 
 impl InjectedFault {
     // Constructor
-    fn new(fault_type: FaultType, time_step: Option<u64>, layer_index: usize, component_type: ComponentType, component_category: ComponentCategory, component_index: usize, bit_index: Option<usize>) -> Self {
+    pub fn new(fault_type: FaultType, time_step: Option<usize>, layer_index: usize, component_type: ComponentType, component_category: ComponentCategory, component_index: usize, bit_index: Option<usize>) -> Self {
         InjectedFault {
             fault_type,
             time_step,

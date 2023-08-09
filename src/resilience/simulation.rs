@@ -3,10 +3,10 @@ use rand::Rng; // Import random number generator
 use crate::network::neuron::neuron::Neuron;
 use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
-use crate::resilience::fault_models::FaultType;
+use crate::resilience::fault_models::{FaultType, InjectedFault};
 
 // Struct to hold the fault injection parameters defined by the user
-struct UserSelection {
+pub struct UserSelection {
     components: Vec<ComponentType>,
     fault_type: FaultType,
     num_faults: u64,
@@ -15,7 +15,7 @@ struct UserSelection {
 
 impl UserSelection {
     // Constructor
-    fn new(components: Vec<ComponentType>, fault_type: FaultType, num_faults: u64, input_sequence: Vec<Vec<u8>>) -> Self {
+    pub fn new(components: Vec<ComponentType>, fault_type: FaultType, num_faults: u64, input_sequence: Vec<Vec<u8>>) -> Self {
         UserSelection {
             components,
             fault_type,
@@ -60,7 +60,16 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
             let num_components = layer.lock().unwrap().get_num_components_from_type(&component_type);
             let component_index = rand::thread_rng().gen_range(0..num_components);
 
-            
+            // Select a random bit index for the component (not for threshold comparators)
+            let mut bit_index: Option<usize> = None;
+            if component_type != ComponentType::ThresholdComparator
+            {
+                bit_index = Some(rand::thread_rng().gen_range(0..64));
+            }
+
+            // Create the injected fault
+            let injected_fault = InjectedFault::new(user_selection.fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
+
 
             
         }

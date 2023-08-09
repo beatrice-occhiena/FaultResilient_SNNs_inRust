@@ -32,14 +32,14 @@ For instance, simulating a stuck-at-1 fault in the threshold comparator would me
 the threshold condition is not met.
 */
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ComponentCategory {
   Connection,
   MemoryArea,
   InternalProcessingBlock,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ComponentType {
 
   // Connections between neurons
@@ -59,6 +59,7 @@ pub enum ComponentType {
 }
 
 impl ComponentType{
+
   pub fn get_category(&self) -> ComponentCategory {
     match self {
       ComponentType::Extra |
