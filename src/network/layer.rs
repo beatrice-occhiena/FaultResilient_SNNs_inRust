@@ -52,8 +52,20 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     &self.extra_weights
   }
 
+  pub fn get_tot_num_extra_weights(&self) -> usize {
+    let num_rows = self.extra_weights.len();
+    let num_cols = self.extra_weights[0].len();
+    num_rows * num_cols
+  }
+
   pub fn get_intra_weights(&self) -> &Vec<Vec<f64>> {
     &self.intra_weights
+  }
+
+  pub fn get_tot_num_intra_weights(&self) -> usize {
+    let num_rows = self.intra_weights.len();
+    let num_cols = self.intra_weights[0].len();
+    num_rows * num_cols
   }
 
   pub fn get_prev_output(&self) -> &Vec<u8> {

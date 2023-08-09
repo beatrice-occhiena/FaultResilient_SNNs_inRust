@@ -1,4 +1,6 @@
 
+use crate::network::neuron::neuron::Neuron;
+use crate::network::layer::Layer;
 
 /** Enum to represent the type of component for verification
  * 
@@ -54,4 +56,22 @@ pub enum ComponentType {
   Adder,
   Multiplier,
   ThresholdComparator,
+}
+
+impl ComponentType{
+  pub fn get_category(&self) -> ComponentCategory {
+    match self {
+      ComponentType::Extra |
+      ComponentType::Intra => ComponentCategory::Connection,
+      ComponentType::ResetPotential |
+      ComponentType::RestingPotential |
+      ComponentType::Threshold |
+      ComponentType::MembranePotential |
+      ComponentType::Tau |
+      ComponentType::Ts => ComponentCategory::MemoryArea,
+      ComponentType::Adder |
+      ComponentType::Multiplier |
+      ComponentType::ThresholdComparator => ComponentCategory::InternalProcessingBlock,
+    }
+  }
 }
