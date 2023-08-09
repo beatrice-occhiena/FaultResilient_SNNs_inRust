@@ -1,6 +1,7 @@
 use std::sync::mpsc::{Sender, Receiver};
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
+use crate::resilience::components::ComponentType;
 
 #[derive(Debug)]
 pub struct Layer<N> 
@@ -52,20 +53,8 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     &self.extra_weights
   }
 
-  pub fn get_tot_num_extra_weights(&self) -> usize {
-    let num_rows = self.extra_weights.len();
-    let num_cols = self.extra_weights[0].len();
-    num_rows * num_cols
-  }
-
   pub fn get_intra_weights(&self) -> &Vec<Vec<f64>> {
     &self.intra_weights
-  }
-
-  pub fn get_tot_num_intra_weights(&self) -> usize {
-    let num_rows = self.intra_weights.len();
-    let num_cols = self.intra_weights[0].len();
-    num_rows * num_cols
   }
 
   pub fn get_prev_output(&self) -> &Vec<u8> {
@@ -158,6 +147,36 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         let output = SpikeEvent::new(timestamp, output_spikes);
         output_tx.send(output).unwrap();
       } 
+    }
+  }
+
+  /* METHODS FOR RESILIENCE ANALYSIS*/
+
+  pub fn get_tot_num_extra_weights(&self) -> usize {
+    let num_rows = self.extra_weights.len();
+    let num_cols = self.extra_weights[0].len();
+    num_rows * num_cols
+  }
+
+  pub fn get_tot_num_intra_weights(&self) -> usize {
+    let num_rows = self.intra_weights.len();
+    let num_cols = self.intra_weights[0].len();
+    num_rows * num_cols
+  }
+
+  /**
+   * It returns the number of components of the given type in the layer.
+   */
+  pub fn get_num_components_from_type(&self, component_type: &ComponentType) -> usize 
+  {
+    match component_type {
+
+      // select one weight from the corresponding weights matrix
+      ComponentType::Extra => self.get_tot_num_extra_weights(),
+      ComponentType::Intra => self.get_tot_num_intra_weights(),
+
+      // else select one neuron from the neuron vector
+      _ => self.get_num_neurons(),
     }
   }
 
