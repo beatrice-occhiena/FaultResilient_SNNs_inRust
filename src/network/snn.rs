@@ -29,6 +29,10 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     &self.layers
   }
 
+  pub fn get_layer(&self, index: usize) -> &Arc<Mutex<Layer<N>>> {
+    &self.layers[index]
+  }
+
   fn get_input_layer_num_neurons(&self) -> usize {
     self.layers[0].lock().unwrap().get_extra_weights().first().unwrap().len()
   }

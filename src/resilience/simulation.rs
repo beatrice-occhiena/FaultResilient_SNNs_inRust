@@ -1,4 +1,6 @@
 /* Defines the simulation logic to be used in the resilience analysis. */
+use rand::Rng; // Import random number generator
+use crate::network::neuron::neuron::Neuron;
 use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::FaultType;
@@ -23,37 +25,48 @@ impl UserSelection {
     }
 }
 
-pub fn run_simulation(snn: &mut SNN, user_selection: UserSelection) {
+impl < N: Neuron + Clone + Send + 'static > SNN < N >
+{
 
-    // Input sequence
-    let input_spikes = user_selection.input_sequence;
-    let num_time_steps = input_spikes[0].len();
+    pub fn run_simulation(&mut self, user_selection: UserSelection) {
 
-    // For each fault to be injected
-    for _ in 0..user_selection.num_faults {
+        // Input sequence
+        let input_spikes = user_selection.input_sequence;
+        let num_time_steps = input_spikes[0].len();
 
-        // If the fault is a transient bit-flip fault
-        // -> Select a random time step from the input sequence
-        let mut time_step: Option<u64> = None;
-        if user_selection.fault_type == FaultType::TransientBitFlip {
-            time_step = Some(rand::thread_rng().gen_range(0, num_time_steps));
+        // For each fault to be injected
+        for _ in 0..user_selection.num_faults {
+
+            // If the fault is a transient bit-flip fault
+            // -> Select a random time step from the input sequence
+            let mut time_step: Option<usize> = None;
+            if user_selection.fault_type == FaultType::TransientBitFlip
+            {
+                time_step = Some(rand::thread_rng().gen_range(0..num_time_steps));
+            }
+
+            // Select a random component from the list of components
+            let component_index = rand::thread_rng().gen_range(0..user_selection.components.len());
+            let component_type = user_selection.components[component_index];
+
+            // Identify the category of the component
+            let component_category = component_type.get_category();
+
+            // Select a random layer from the list of layers
+            let layer_index = rand::thread_rng().gen_range(0..self.get_num_layers());
+
+            // Select a random index of the component from the list of components of the given type in the layer
+            let layer = self.get_layer(layer_index);
+            let num_components = layer.lock().unwrap().get_num_components_from_type(&component_type);
+            let component_index = rand::thread_rng().gen_range(0..num_components);
+
+            
+
+            
         }
-
-        // Select a random component from the list of components
-        let component_index = rand::thread_rng().gen_range(0, user_selection.components.len());
-        let component_type = user_selection.components[component_index];
-
-        // Identify the category of the component
-        let component_category = component_type.get_category();
-
-        // Select a random layer from the list of layers
-        let layer_index = rand::thread_rng().gen_range(0, snn.layers.len());
-
-        // Select a random index of the component from the list of components of the given type in the layer
-        let component_index = component_type.get_num_from_layer(&snn.layers[layer_index]);
-
-        
     }
+
+    
 }
 
 /*

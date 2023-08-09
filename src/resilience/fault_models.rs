@@ -4,6 +4,7 @@ use rand::Rng; // Import random number generator
 use crate::resilience::components::{ComponentType, ComponentCategory};
 
 // Enum representing the different fault types
+#[derive(Debug, PartialEq)]
 pub enum FaultType {
     StuckAt0,
     StuckAt1,
