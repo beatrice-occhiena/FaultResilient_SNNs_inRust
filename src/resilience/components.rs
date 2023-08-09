@@ -31,33 +31,27 @@ the threshold condition is not met.
 */
 
 #[derive(Debug, Clone, Copy)]
-pub enum ComponentType {
-  Connection(ConnectionType),
-  MemoryArea(MemoryAreaType),
-  InternalProcessingBlock(InternalProcessingBlockType),
+pub enum ComponentCategory {
+  Connection,
+  MemoryArea,
+  InternalProcessingBlock,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum ConnectionType {
+pub enum ComponentType {
+
+  // Connections between neurons
   Extra,
   Intra,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum MemoryAreaType {
+  // Memory areas
   ResetPotential,
   RestingPotential,
   Threshold,
   MembranePotential,
   Tau,
   Ts,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum InternalProcessingBlockType {
+  // Internal processing blocks
   Adder,
   Multiplier,
-  ThresholdComparison,
+  ThresholdComparator,
 }
-
-ComponentType::Connection(ConnectionType::Extra);

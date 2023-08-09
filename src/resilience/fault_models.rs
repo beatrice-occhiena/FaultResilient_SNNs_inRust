@@ -1,10 +1,10 @@
 /* Module for fault models */
 
-use rand::Rng;
-use crate::resilience::components::ComponentType;
+use rand::Rng; // Import random number generator
+use crate::resilience::components::{ComponentType, ComponentCategory};
+
 
 // Enum representing the different fault types
-#[derive(Debug, Clone, Copy)]
 pub enum FaultType {
     StuckAt0,
     StuckAt1,
@@ -12,39 +12,29 @@ pub enum FaultType {
 }
 
 // Struct representing a fault occurrence with its properties
-#[derive(Debug, Clone, Copy)]
-struct Fault {
-    component_index: usize,
-    bit_index: usize,
+struct InjectedFault {
+    // FAULT PROPERTIES
     fault_type: FaultType,
+    time_step: u64,                         // Time step at which the fault must be injected (for transient bit-flip faults only)
+    // FAULT LOCATION
+    layer_index: usize,                     // Layer index of the component in which the fault must be injected
+    component_category: ComponentCategory,  // Category of component in which the fault must be injected
+    component_type: ComponentType,          // Type of component in which the fault must be injected
+    component_index: usize,                 // Index of the component in which the fault must be injected
+    bit_index: usize,                       // Bit index of the component in which the fault must be injected
 }
 
-// Function to generate a fault occurrence
-fn generate_fault(num_components: usize, num_bits_per_component: usize, fault_type: FaultType) -> Fault {
-    
-    let mut rng = rand::thread_rng(); // Initialize random number generator
-    let component_index = rng.gen_range(0..num_components);
-    let bit_index = rng.gen_range(0..num_bits_per_component);
-
-    Fault {
-        component_index,
-        bit_index,
-        fault_type,
+impl InjectedFault {
+    // Constructor
+    fn new(fault_type: FaultType, time_step: u64, layer_index: usize, component_type: ComponentType, component_category: ComponentCategory, component_index: usize, bit_index: usize) -> Self {
+        InjectedFault {
+            fault_type,
+            time_step,
+            layer_index,
+            component_category,
+            component_type,
+            component_index,
+            bit_index,
+        }
     }
-}
-
-// Struct representing a fault model
-#[derive(Debug, Clone, Copy)]
-pub struct FaultModel {
-    components: Vec<ComponentType>,
-    fault_type: FaultType,
-    num_faults: usize,
-}
-
-
-fn stuck_at_0_fault<T: std::ops::BitAnd + std::ops::Not + From<u8>>(var: T) -> T {
-    let num_bits = std::mem::size_of::<T>() * 8;
-    let mut rng = rand::thread_rng();
-    let bit_to_stuck = rng.gen_range(0..num_bits);
-    var & !(T::from(1u8) << bit_to_stuck)
 }
