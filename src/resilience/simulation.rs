@@ -67,27 +67,15 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
                 bit_index = Some(rand::thread_rng().gen_range(0..64));
             }
 
-            // Create the injected fault
+            // Create the injected fault object
             let injected_fault = InjectedFault::new(user_selection.fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
 
+            // Process the input sequence with the injected fault
+            self.process_input_with_fault(&input_spikes, &injected_fault);
 
-            
+            // ...
         }
+
     }
 
-    
 }
-
-/*
-pub struct InjectedFault {
-    // FAULT PROPERTIES
-    fault_type: FaultType,
-    time_step: Option<u64>,                 // Time step at which the fault must be injected (for transient bit-flip faults only)
-    // FAULT LOCATION
-    layer_index: usize,                     // Layer index of the component in which the fault must be injected
-    component_category: ComponentCategory,  // Category of component in which the fault must be injected
-    component_type: ComponentType,          // Type of component in which the fault must be injected
-    component_index: usize,                 // Index of the component in which the fault must be injected
-    bit_index: Option<usize>,               // Bit index of the component in which the fault must be injected (not for threshold comparators)
-}
- */

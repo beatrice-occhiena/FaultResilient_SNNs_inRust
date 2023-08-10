@@ -15,14 +15,14 @@ pub enum FaultType {
 #[derive(Debug, Clone, Copy)]
 pub struct InjectedFault {
     // FAULT PROPERTIES
-    fault_type: FaultType,
-    time_step: Option<usize>,                 // Time step at which the fault must be injected (for transient bit-flip faults only)
+    pub fault_type: FaultType,
+    pub time_step: Option<usize>,               // Time step at which the fault must be injected (for transient bit-flip faults only)
     // FAULT LOCATION
-    layer_index: usize,                     // Layer index of the component in which the fault must be injected
-    component_category: ComponentCategory,  // Category of component in which the fault must be injected
-    component_type: ComponentType,          // Type of component in which the fault must be injected
-    component_index: usize,                 // Index of the component in which the fault must be injected
-    bit_index: Option<usize>,               // Bit index of the component in which the fault must be injected (not for threshold comparators)
+    pub layer_index: usize,                     // Layer index of the component in which the fault must be injected
+    pub component_category: ComponentCategory,  // Category of component in which the fault must be injected
+    pub component_type: ComponentType,          // Type of component in which the fault must be injected
+    pub component_index: usize,                 // Index of the component in which the fault must be injected
+    pub bit_index: Option<usize>,               // Bit index of the component in which the fault must be injected (not for threshold comparators)
 }
 
 impl InjectedFault {
