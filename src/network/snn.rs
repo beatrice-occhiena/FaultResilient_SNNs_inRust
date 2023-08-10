@@ -6,6 +6,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use crate::network::layer::Layer;
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
+use crate::resilience::fault_models::InjectedFault;
 
 
 #[derive(Debug)]
@@ -56,16 +57,20 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     In the pre-processing phase, the input spikes are converted into spike events 
     while checking their consistency.
 
+    @param injected_fault (Option<InjectedFault>)
+    In the resilience analysis the user can inject faults in some of the components of the network.
+    If some fault has been injected this parameter contains the characteristics of the fault
+
     @return Vec<Vec<u8>>
     The output of the SNN is a matrix of 0/1, where each row represents the array of spikes produced by each output neuron.
    */
-  pub fn process_input(&self, spikes: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+  pub fn process_input(&self, spikes: &Vec<Vec<u8>>, injected_fault: Option<InjectedFault>) -> Vec<Vec<u8>> {
 
     // PRE-PROCESSING: convert the input spikes into spike events
     let input_spike_events = self.derive_input_spike_events(spikes);
 
     // PARALLEL PROCESSING: process the input spike events
-    let output_spike_events = self.process_input_spike_events(input_spike_events);
+    let output_spike_events = self.process_input_spike_events(input_spike_events, injected_fault);
     //let output_spike_events = self.verbose_process_input_spike_events(input_spike_events);
 
     // POST-PROCESSING: convert the output spike events into output spikes
@@ -110,12 +115,10 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
     // derive the spike events
     for t in 0..num_time_steps {
-
       let mut spikes_t: Vec<u8> = Vec::new();
       
       // generate the vertical slice
       for n in 0..input_spikes.len() {
-        
         let spike = input_spikes[n][t];
         // check the value of the spike is consistent
         if spike != 0 && spike != 1 {
@@ -143,7 +146,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     The output of the SNN is a vector of SpikeEvent, where each SpikeEvent represents the array of spikes produced by each output neuron at a given time instant.
    */
   #[allow(dead_code)]
-  fn verbose_process_input_spike_events(&self, input_spike_events: Vec<SpikeEvent>) -> Vec<SpikeEvent> {
+  fn verbose_process_input_spike_events(&self, input_spike_events: Vec<SpikeEvent>, injected_fault: Option<InjectedFault>) -> Vec<SpikeEvent> {
 
     let mut thread_handles = Vec::<JoinHandle<()>>::new();
 
@@ -151,7 +154,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     let (input_tx, mut layer_rc) = channel::<SpikeEvent>();    
 
     // for each layer create a new thread and process the input
-    for layer in self.layers.iter() {
+    for (i, layer) in self.layers.iter().enumerate() {
 
       // clone the Arc pointer to the layer 
       let layer = layer.clone();
@@ -162,7 +165,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
       // create a new thread
       let handle = thread::spawn(move || {
         let mut layer = layer.lock().unwrap();
-        layer.process_input(layer_rc,layer_tx);
+        layer.process_input(layer_rc,layer_tx, injected_fault, i);
       });
 
       // push the handle in the vector
@@ -204,13 +207,13 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     output_spike_events
   }
 
-  fn process_input_spike_events(&self, input_spike_events: Vec<SpikeEvent>) -> Vec<SpikeEvent> {
+  fn process_input_spike_events(&self, input_spike_events: Vec<SpikeEvent>, injected_fault: Option<InjectedFault>) -> Vec<SpikeEvent> {
     
     // Step 1: create the first channel for the input
     let (input_tx, layer_rc) = channel::<SpikeEvent>();
 
     // Step 2: Create and spawn threads
-    let (thread_handles, output_rc) = self.create_and_spawn_threads(layer_rc);
+    let (thread_handles, output_rc) = self.create_and_spawn_threads(layer_rc, injected_fault);
 
     // Step 3: Send input spike events to the first layer
     SNN::<N>::send_input_spike_events(input_spike_events, input_tx);
@@ -222,14 +225,14 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     SNN::<N>::receive_output_spike_events(output_rc)
   }
 
-  fn create_and_spawn_threads(&self, layer_rc: Receiver<SpikeEvent>) -> (Vec<JoinHandle<()>>, Receiver<SpikeEvent>) {
+  fn create_and_spawn_threads(&self, layer_rc: Receiver<SpikeEvent>, injected_fault: Option<InjectedFault>) -> (Vec<JoinHandle<()>>, Receiver<SpikeEvent>) {
     
     let mut curr_layer_rc = layer_rc;
     
     let mut thread_handles = Vec::<JoinHandle<()>>::new();
     
     // for each layer create a new thread and activate the processing of the input
-    for layer in self.layers.iter() {
+    for (i,layer) in self.layers.iter().enumerate() {
         // clone the Arc pointer to the layer 
         let layer = layer.clone();
 
@@ -239,7 +242,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
         // create a new thread
         let handle = thread::spawn(move || {
             let mut layer = layer.lock().unwrap();
-            layer.process_input(curr_layer_rc,curr_layer_tx);
+            layer.process_input(curr_layer_rc,curr_layer_tx, injected_fault, i);
         });
 
         // push the handle in the vector
@@ -313,90 +316,5 @@ fn receive_output_spike_events(layer_rc: Receiver<SpikeEvent>) -> Vec<SpikeEvent
   
     output_spikes
   }
-
-}
-
-    /***********************************/
-    /* METHODS FOR RESILIENCE ANALYSIS */
-    /***********************************/
-
-use crate::resilience::fault_models::InjectedFault;
-
-impl < N: Neuron + Clone + Send + 'static > SNN < N >
-{
-  pub fn process_input_with_fault(&self, spikes: &Vec<Vec<u8>>, injected_fault: InjectedFault) -> Vec<Vec<u8>> {
-
-    // PRE-PROCESSING: convert the input spikes into spike events
-    let input_spike_events = self.derive_input_spike_events(spikes);
-
-    // PARALLEL PROCESSING: process the input spike events
-    let output_spike_events = self.process_input_spike_events_with_fault(input_spike_events, injected_fault);
-    //let output_spike_events = self.verbose_process_input_spike_events(input_spike_events);
-
-    // POST-PROCESSING: convert the output spike events into output spikes
-    let output_spikes = self.derive_output_spikes(&output_spike_events, spikes.first().unwrap().len());
-
-    output_spikes   
-  }
-
-  fn process_input_spike_events_with_fault(&self, input_spike_events: Vec<SpikeEvent>, injected_fault: InjectedFault) -> Vec<SpikeEvent> {
-
-    // Step 1: create the first channel for the input
-    let (input_tx, layer_rc) = channel::<SpikeEvent>();
-
-    // Step 2: Create and spawn threads
-    let (thread_handles, output_rc) = self.create_and_spawn_threads_with_fault(layer_rc, injected_fault);
-
-    // Step 3: Send input spike events to the first layer
-    SNN::<N>::send_input_spike_events(input_spike_events, input_tx);
-
-    // Step 4: Wait for the threads to finish
-    SNN::<N>::wait_for_threads(thread_handles);
-
-    // Step 5: Receive output spike events from the last layer
-    SNN::<N>::receive_output_spike_events(output_rc)
-  }
-
-  fn create_and_spawn_threads_with_fault(&self, layer_rc: Receiver<SpikeEvent>, fault: InjectedFault) -> (Vec<JoinHandle<()>>, Receiver<SpikeEvent>) {
-    
-    let mut curr_layer_rc = layer_rc;
-    
-    let mut thread_handles = Vec::<JoinHandle<()>>::new();
-    
-    // for each layer create a new thread and activate the processing of the input
-    for (i, layer) in self.layers.iter().enumerate(){
-
-        // clone the Arc pointer to the layer 
-        let layer = layer.clone();
-
-        // create another channel for its communication with the next layer
-        let (curr_layer_tx, next_layer_rc) = channel::<SpikeEvent>();
-
-        // create a new thread
-        let handle = thread::spawn(move || {
-            let mut layer = layer.lock().unwrap();
-
-            // if the current layer is the one where the fault must be injected
-            // => then inject the fault
-            if fault.layer_index == i {
-                layer.process_input_with_fault(curr_layer_rc,curr_layer_tx, fault);
-            }
-            else {
-                layer.process_input(curr_layer_rc,curr_layer_tx);
-            }
-        });
-
-        // push the handle in the vector
-        thread_handles.push(handle);
-
-        // update the channel for the next layer
-        curr_layer_rc = next_layer_rc;
-    }
-
-    // the last channel is the output channel
-    let output_rc = curr_layer_rc;
-
-    (thread_handles, output_rc)
-}
 
 }

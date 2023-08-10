@@ -1,10 +1,8 @@
 /* Module for fault models */
-
-use rand::Rng; // Import random number generator
 use crate::resilience::components::{ComponentType, ComponentCategory};
 
 // Enum representing the different fault types
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FaultType {
     StuckAt0,
     StuckAt1,

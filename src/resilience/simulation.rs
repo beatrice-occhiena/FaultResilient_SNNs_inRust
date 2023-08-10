@@ -1,8 +1,9 @@
 /* Defines the simulation logic to be used in the resilience analysis. */
-use rand::Rng; // Import random number generator
+use rand::Rng;
+// Import random number generator
 use crate::network::neuron::neuron::Neuron;
 use crate::network::snn::SNN;
-use crate::resilience::components::ComponentType;
+use crate::resilience::components::{ComponentType};
 use crate::resilience::fault_models::{FaultType, InjectedFault};
 
 // Struct to hold the fault injection parameters defined by the user
@@ -27,7 +28,6 @@ impl UserSelection {
 
 impl < N: Neuron + Clone + Send + 'static > SNN < N >
 {
-
     pub fn run_simulation(&mut self, user_selection: UserSelection) {
 
         // Input sequence
@@ -71,7 +71,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
             let injected_fault = InjectedFault::new(user_selection.fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
 
             // Process the input sequence with the injected fault
-            self.process_input_with_fault(&input_spikes, injected_fault);
+            self.process_input(&input_spikes, Some(injected_fault));
 
             // ...
         }

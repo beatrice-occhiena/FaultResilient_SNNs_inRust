@@ -36,7 +36,7 @@ pub enum ComponentCategory {
   InternalProcessingBlock,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ComponentType {
 
   // Connections between neurons

@@ -1,6 +1,9 @@
 use std::sync::mpsc::{Sender, Receiver};
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
+use crate::resilience::components::{ComponentType};
+use crate::resilience::fault_models::InjectedFault;
+
 
 #[derive(Debug)]
 pub struct Layer<N> 
@@ -60,6 +63,31 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     &self.prev_output
   }
 
+  pub fn get_tot_num_extra_weights(&self) -> usize {
+    let num_rows = self.extra_weights.len();
+    let num_cols = self.extra_weights[0].len();
+    num_rows * num_cols
+  }
+
+  pub fn get_tot_num_intra_weights(&self) -> usize {
+    let num_rows = self.intra_weights.len();
+    let num_cols = self.intra_weights[0].len();
+    num_rows * num_cols
+  }
+
+  /**
+      It returns the number of components of the given type in the layer.
+   **/
+  pub fn get_num_components_from_type(&self, component_type: &ComponentType) -> usize {
+    match component_type {
+      // select one weight from the corresponding weights matrix
+      ComponentType::Extra => self.get_tot_num_extra_weights(),
+      ComponentType::Intra => self.get_tot_num_intra_weights(),
+      // else select one neuron from the neuron vector
+      _ => self.get_num_neurons(),
+    }
+  }
+
   // Setters
   fn initialize (&mut self) {
     self.prev_output.clear();
@@ -77,7 +105,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     - @param input_rc: the channel to receive the input spike event from the previous layer
     - @param output_tx: the channel to send the output spike event to the next layer
    */
-  pub fn process_input(&mut self, input_rc: Receiver<SpikeEvent>, output_tx: Sender<SpikeEvent>) {
+  pub fn process_input(&mut self, input_rc: Receiver<SpikeEvent>, output_tx: Sender<SpikeEvent>, fault: Option<InjectedFault>, layer_number: usize) {
     
     // reset the neurons in the layer to reuse the SNN
     // for future inferences without building a new one
@@ -105,7 +133,13 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         // ---> we consider the input spikes
         let mut extra_weights_sum = 0.0;
         for (j, weight) in self.extra_weights[i].iter().enumerate() {
-          extra_weights_sum += weight * input_spikes[j] as f64;
+          // If the fault targets the extra weight selected => apply the fault
+          if fault.is_some() && layer_number == fault.unwrap().layer_index && fault.unwrap().component_type == ComponentType::Extra && fault.unwrap().component_index == (i*self.extra_weights[i].len() + j) {
+            extra_weights_sum += &fault.unwrap().apply_fault(*weight, timestamp) * input_spikes[j] as f64;
+          }
+          else {
+            extra_weights_sum += weight * input_spikes[j] as f64;
+          }
         }
 
         // compute the sum of the weights of the connections between the neuron
@@ -115,7 +149,13 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         let mut intra_weights_sum = 0.0;
         for (j, weight) in self.intra_weights[i].iter().enumerate() {
           if i != j {
-            intra_weights_sum += weight * self.prev_output[j] as f64;
+            if fault.is_some() && layer_number == fault.unwrap().layer_index && fault.unwrap().component_type == ComponentType::Intra && fault.unwrap().component_index == (i*self.intra_weights[i].len() + j) {
+              intra_weights_sum += &fault.unwrap().apply_fault(*weight, timestamp) * input_spikes[j] as f64;
+            }
+            else {
+              intra_weights_sum += weight * self.prev_output[j] as f64;
+            }
+
           }
         }
 
@@ -126,7 +166,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
 
         // compute the membrane potential and check if it spikes
         // and update the output spikes vector
-        let spike = neuron.process_input(timestamp, weights_sum);
+        let spike = neuron.process_input(timestamp, weights_sum, fault);
         output_spikes.push(spike);
 
         // update the flag to send the output spikes to the next layer
@@ -148,131 +188,5 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
       } 
     }
   }
-
-}
-
-    /***********************************/
-    /* METHODS FOR RESILIENCE ANALYSIS */
-    /***********************************/
-
-use crate::resilience::components::{ComponentType, ComponentCategory};
-use crate::resilience::fault_models::InjectedFault;
-
-impl <N: Neuron + Clone + Send + 'static> Layer<N> {
-
-  pub fn get_tot_num_extra_weights(&self) -> usize {
-    let num_rows = self.extra_weights.len();
-    let num_cols = self.extra_weights[0].len();
-    num_rows * num_cols
-  }
-
-  pub fn get_tot_num_intra_weights(&self) -> usize {
-    let num_rows = self.intra_weights.len();
-    let num_cols = self.intra_weights[0].len();
-    num_rows * num_cols
-  }
-
-  /**
-    It returns the number of components of the given type in the layer.
-   */
-  pub fn get_num_components_from_type(&self, component_type: &ComponentType) -> usize {
-    match component_type {
-
-      // select one weight from the corresponding weights matrix
-      ComponentType::Extra => self.get_tot_num_extra_weights(),
-      ComponentType::Intra => self.get_tot_num_intra_weights(),
-
-      // else select one neuron from the neuron vector
-      _ => self.get_num_neurons(),
-    }
-  }
-
-  /**
-    Similary to the process_input method, it processes the input spikes coming from the previous layer
-    while considering the injected fault, and returns the output spikes to the next layer.
-   */
-  pub fn process_input_with_fault(&mut self, input_rc: Receiver<SpikeEvent>, output_tx: Sender<SpikeEvent>, fault: InjectedFault) {
-    
-    self.initialize();
-
-    while let Ok(input) = input_rc.recv() {
-
-      let timestamp = input.get_t();
-      let input_spikes = input.get_spikes();
-      let mut output_spikes = Vec::<u8>::with_capacity(self.neurons.len());
-
-      let mut all_zero = true;
-
-      for (i, neuron) in self.neurons.iter_mut().enumerate() {
-
-
-        let mut extra_weights_sum = 0.0;
-
-        // ????????????????????? maybe it's a good idea
-        // if fault.component_type == ComponentType::Extra
-        // extra_weights_sum = compute_extra_weights_sum_with_fault(&self.extra_weights[i], &input_spikes, fault, timestamp);
-        // else
-        // extra_weights_sum = compute_extra_weights_sum(&self.extra_weights[i], &input_spikes);
-
-        for (j, mut weight) in self.extra_weights[i].iter().enumerate() {
-
-            // If the fault targets the extra weight selected => apply the fault
-            if fault.component_type == ComponentType::Extra && fault.component_index == (i*self.extra_weights[i].len() + j)
-            {
-                let weight_fault = &fault.apply_fault(*weight, timestamp);
-                extra_weights_sum += weight_fault * input_spikes[j] as f64;
-            }
-            else {
-                extra_weights_sum += weight * input_spikes[j] as f64;
-            }
-        }
-
-        let mut intra_weights_sum = 0.0;
-        for (j, mut weight) in self.intra_weights[i].iter().enumerate() {
-          if i != j {
-            // If the fault targets the intra weight selected => apply the fault
-            if fault.component_type == ComponentType::Intra && fault.component_index == (i*self.extra_weights[i].len() + j)
-            {
-                let weight_fault = &fault.apply_fault(*weight, timestamp);
-                intra_weights_sum += weight_fault * input_spikes[j] as f64;
-
-            } else {
-              intra_weights_sum += weight * input_spikes[j] as f64;
-            }
-          }
-        }
-
-        let weights_sum = extra_weights_sum + intra_weights_sum;
-
-        // If the fault targets the neuron selected => apply the fault
-        let mut spike;
-        if fault.component_category != ComponentCategory::Connection && fault.component_index == i {
-            spike = neuron.process_input_with_fault(timestamp, weights_sum, &fault);
-        }
-        else {
-            spike = neuron.process_input(timestamp, weights_sum);
-        }
-        output_spikes.push(spike);
-
-        // update the flag to send the output spikes to the next layer
-        if all_zero && spike == 1u8 {
-          all_zero = false;
-        }
-      }
-
-      // update the output vector of the previous time instant
-      // for the next iteration
-      self.prev_output = output_spikes.clone();
-
-      // if at least one spike in the input vector is 1
-      // then the output spikes are sent to the next layer
-      if !all_zero{
-
-        let output = SpikeEvent::new(timestamp, output_spikes);
-        output_tx.send(output).unwrap();
-      } 
-    }
-  }    
-
 
 }
