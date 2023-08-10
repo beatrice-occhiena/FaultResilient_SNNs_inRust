@@ -39,10 +39,10 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
             // If the fault is a transient bit-flip fault
             // -> Select a random time step from the input sequence
-            let mut time_step: Option<usize> = None;
+            let mut time_step: Option<u64> = None;
             if user_selection.fault_type == FaultType::TransientBitFlip
             {
-                time_step = Some(rand::thread_rng().gen_range(0..num_time_steps));
+                time_step = Some(rand::thread_rng().gen_range(0..num_time_steps) as u64);
             }
 
             // Select a random component from the list of components
@@ -71,7 +71,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
             let injected_fault = InjectedFault::new(user_selection.fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
 
             // Process the input sequence with the injected fault
-            self.process_input_with_fault(&input_spikes, &injected_fault);
+            self.process_input_with_fault(&input_spikes, injected_fault);
 
             // ...
         }

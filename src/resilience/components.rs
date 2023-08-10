@@ -1,7 +1,4 @@
 
-use crate::network::neuron::neuron::Neuron;
-use crate::network::layer::Layer;
-
 /** Enum to represent the type of component for verification
  * 
 The "**connections between neurons**" are represented by the 

@@ -324,7 +324,7 @@ use crate::resilience::fault_models::InjectedFault;
 
 impl < N: Neuron + Clone + Send + 'static > SNN < N >
 {
-  pub fn process_input_with_fault(&self, spikes: &Vec<Vec<u8>>, injected_fault: &InjectedFault) -> Vec<Vec<u8>> {
+  pub fn process_input_with_fault(&self, spikes: &Vec<Vec<u8>>, injected_fault: InjectedFault) -> Vec<Vec<u8>> {
 
     // PRE-PROCESSING: convert the input spikes into spike events
     let input_spike_events = self.derive_input_spike_events(spikes);
@@ -339,7 +339,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     output_spikes   
   }
 
-  fn process_input_spike_events_with_fault(&self, input_spike_events: Vec<SpikeEvent>, injected_fault: &InjectedFault) -> Vec<SpikeEvent> {
+  fn process_input_spike_events_with_fault(&self, input_spike_events: Vec<SpikeEvent>, injected_fault: InjectedFault) -> Vec<SpikeEvent> {
 
     // Step 1: create the first channel for the input
     let (input_tx, layer_rc) = channel::<SpikeEvent>();
@@ -357,7 +357,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     SNN::<N>::receive_output_spike_events(output_rc)
   }
 
-  fn create_and_spawn_threads_with_fault(&self, layer_rc: Receiver<SpikeEvent>, fault: &InjectedFault) -> (Vec<JoinHandle<()>>, Receiver<SpikeEvent>) {
+  fn create_and_spawn_threads_with_fault(&self, layer_rc: Receiver<SpikeEvent>, fault: InjectedFault) -> (Vec<JoinHandle<()>>, Receiver<SpikeEvent>) {
     
     let mut curr_layer_rc = layer_rc;
     

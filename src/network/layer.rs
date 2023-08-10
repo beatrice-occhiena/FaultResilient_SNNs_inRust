@@ -191,7 +191,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     Similary to the process_input method, it processes the input spikes coming from the previous layer
     while considering the injected fault, and returns the output spikes to the next layer.
    */
-  pub fn process_input_with_fault(&mut self, input_rc: Receiver<SpikeEvent>, output_tx: Sender<SpikeEvent>, fault: &InjectedFault) {
+  pub fn process_input_with_fault(&mut self, input_rc: Receiver<SpikeEvent>, output_tx: Sender<SpikeEvent>, fault: InjectedFault) {
     
     self.initialize();
 
@@ -219,23 +219,26 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
             // If the fault targets the extra weight selected => apply the fault
             if fault.component_type == ComponentType::Extra && fault.component_index == (i*self.extra_weights[i].len() + j)
             {
-                weight = &mut fault.apply_fault(weight, timestamp);
+                let weight_fault = &fault.apply_fault(*weight, timestamp);
+                extra_weights_sum += weight_fault * input_spikes[j] as f64;
             }
-
-            extra_weights_sum += weight * input_spikes[j] as f64;
+            else {
+                extra_weights_sum += weight * input_spikes[j] as f64;
+            }
         }
 
         let mut intra_weights_sum = 0.0;
-        for (j, weight) in self.intra_weights[i].iter().enumerate() {
+        for (j, mut weight) in self.intra_weights[i].iter().enumerate() {
           if i != j {
-
             // If the fault targets the intra weight selected => apply the fault
-            if fault.component_type == ComponentType::Intra && fault.component_index == (i*self.intra_weights[i].len() + j)
+            if fault.component_type == ComponentType::Intra && fault.component_index == (i*self.extra_weights[i].len() + j)
             {
-                weight = &mut fault.apply_fault(weight, timestamp);
-            }
+                let weight_fault = &fault.apply_fault(*weight, timestamp);
+                intra_weights_sum += weight_fault * input_spikes[j] as f64;
 
-            intra_weights_sum += weight * self.prev_output[j] as f64;
+            } else {
+              intra_weights_sum += weight * input_spikes[j] as f64;
+            }
           }
         }
 
@@ -244,7 +247,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         // If the fault targets the neuron selected => apply the fault
         let mut spike;
         if fault.component_category != ComponentCategory::Connection && fault.component_index == i {
-            spike = neuron.process_input_with_fault(timestamp, weights_sum, fault);
+            spike = neuron.process_input_with_fault(timestamp, weights_sum, &fault);
         }
         else {
             spike = neuron.process_input(timestamp, weights_sum);
