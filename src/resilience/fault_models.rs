@@ -9,6 +9,12 @@ pub enum FaultType {
     TransientBitFlip,
 }
 
+impl FaultType {
+    pub fn all() -> [FaultType; 3] {
+        [FaultType::StuckAt0, FaultType::StuckAt1,FaultType::TransientBitFlip]
+    }
+}
+
 // Struct representing a fault occurrence with its properties
 #[derive(Debug, Clone, Copy)]
 pub struct InjectedFault {

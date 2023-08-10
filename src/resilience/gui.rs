@@ -1,17 +1,18 @@
 // possible GUI implementation with iced
 
-use iced::{alignment};
+use iced::{alignment, Application, executor, Theme, window};
 use iced::theme;
 use iced::widget::{
-    checkbox, column, container, horizontal_space, image, radio, row,
-    scrollable, slider, text, text_input,
+    checkbox, column, container, horizontal_space, radio, row, text, text_input,
+    Button, Column
 };
-use iced::widget::{Button, Column, Container};
-use iced::{Color, Element, Length, Sandbox, Settings};
+use iced::{Element, Length, Settings, Command};
+use crate::resilience::components::ComponentType;
+use crate::resilience::fault_models::FaultType;
 
-pub fn main() -> iced::Result {
+pub fn launch() {
     //env_logger::init();
-    Tour::run(Settings::default())
+    let _t = Tour::run(Settings::default());
 }
 
 pub struct Tour {
@@ -19,30 +20,45 @@ pub struct Tour {
     debug: bool,
 }
 
-impl Sandbox for Tour {
+impl Application for Tour {
+    type Executor = executor::Default;
     type Message = Message;
+    type Theme = Theme;
+    type Flags = ();
 
-    fn new() -> Tour {
-        Tour {
-            steps: Steps::new(),
-            debug: false,
-        }
+    fn new(_flags: ()) -> (Tour, Command<Message>) {
+        (
+            Tour {
+                steps: Steps::new(),
+                debug: false,
+            },
+            Command::none()
+        )
     }
 
     fn title(&self) -> String {
         format!("{} - Iced", self.steps.title())
     }
 
-    fn update(&mut self, event: Message) {
+    fn update(&mut self, event: Message) -> Command<Message> {
         match event {
             Message::BackPressed => {
                 self.steps.go_back();
-            }
+                Command::none()
+            },
             Message::NextPressed => {
                 self.steps.advance();
-            }
+                if self.steps.current > 1 {
+                    println!("{:?}", self.steps.steps.get(self.steps.current - 1).unwrap());
+                }
+                Command::none()
+            },
             Message::StepMessage(step_msg) => {
                 self.steps.update(step_msg);
+                Command::none()
+            },
+            Message::ExitMessage => {
+                window::close()
             }
         }
     }
@@ -53,8 +69,7 @@ impl Sandbox for Tour {
         let mut controls = row![];
 
         if steps.has_previous() {
-            controls = controls.push(
-                button("Back")
+            controls = controls.push(button("Back")
                     .on_press(Message::BackPressed)
                     .style(theme::Button::Secondary),
             );
@@ -63,30 +78,23 @@ impl Sandbox for Tour {
         controls = controls.push(horizontal_space(Length::Fill));
 
         if steps.can_continue() {
-            controls =
-                controls.push(button("Next").on_press(Message::NextPressed));
+            controls = controls.push(button("Next").on_press(Message::NextPressed));
+        }
+
+        if steps.is_exit() {
+            controls = controls.push(button("Exit").on_press(Message::ExitMessage));
         }
 
         let content: Element<_> = column![
             steps.view(self.debug).map(Message::StepMessage),
             controls,
-        ]
-            .max_width(540)
-            .spacing(20)
-            .padding(20)
-            .into();
+        ].max_width(540).spacing(20).padding(20).into();
 
-        let scrollable = scrollable(
-            container(if self.debug {
-                content.explain(Color::BLACK)
-            } else {
-                content
-            })
-                .width(Length::Fill)
-                .center_x(),
-        );
+        container(content).width(Length::Fill).height(Length::Fill).center_x().center_y().into()
+    }
 
-        container(scrollable).height(Length::Fill).center_y().into()
+    fn theme(&self) -> Self::Theme {
+        Theme::Dark
     }
 }
 
@@ -95,16 +103,11 @@ pub enum Message {
     BackPressed,
     NextPressed,
     StepMessage(StepMessage),
+    ExitMessage
 }
 
-
-#[derive(Debug, Clone, Copy)]
-pub enum MessageExit {
-    Confirm,
-    Exit,
-}
-
-struct Steps {
+#[derive(Debug, Clone)]
+pub struct Steps {
     steps: Vec<Step>,
     current: usize,
 }
@@ -115,22 +118,12 @@ impl Steps {
             steps: vec![
                 Step::Welcome,
                 Step::Radio {
-                    intra: false,
-                    extra: false,
-                    reset: false,
-                    resting: false,
-                    threshold: false,
-                    vmem: false,
-                    tau: false,
-                    ts: false,
-                    adder: false,
-                    multiplier: false,
-                    comparator: false
+                    intra: false, extra: false,
+                    reset: false, resting: false, threshold: false, vmem: false, tau: false, ts: false,
+                    adder: false, multiplier: false, comparator: false
                 },
                 Step::Fault { selection: None },
-                Step::TextInput {
-                    value: String::new(),
-                },
+                Step::TextInput { value: String::new() },
                 //Step::Image { width: 300 },
                 Step::End,
             ],
@@ -142,8 +135,8 @@ impl Steps {
         self.steps[self.current].update(msg);
     }
 
-    fn view(&self, _debug: bool) -> Element<StepMessage> {
-        self.steps[self.current].view(_debug)
+    fn view(&self, debug: bool) -> Element<StepMessage> {
+        self.steps[self.current].view(debug)
     }
 
     fn advance(&mut self) {
@@ -162,6 +155,10 @@ impl Steps {
         self.current > 0
     }
 
+    fn is_exit(&self) -> bool {
+        self.current == self.steps.len() - 1
+    }
+
     fn can_continue(&self) -> bool {
         self.current + 1 < self.steps.len()
             && self.steps[self.current].can_continue()
@@ -172,21 +169,14 @@ impl Steps {
     }
 }
 
+#[derive(Debug, Clone)]
 enum Step {
     Welcome,
-    Fault { selection: Option<Faults>, },
+    Fault { selection: Option<FaultType>, },
     Radio {
-        intra: bool,
-        extra: bool,
-        reset: bool,
-        resting: bool,
-        threshold: bool,
-        vmem: bool,
-        tau: bool,
-        ts: bool,
-        adder: bool,
-        multiplier: bool,
-        comparator: bool,
+        intra: bool, extra: bool,
+        reset: bool, resting: bool, threshold: bool, vmem: bool, tau: bool, ts: bool,
+        adder: bool, multiplier: bool, comparator: bool,
     },
     TextInput { value: String },
     //Image { width: u16, },
@@ -206,7 +196,7 @@ pub enum StepMessage {
     AdderSelected(bool),
     MulSelected(bool),
     ComparatorSelected(bool),
-    FaultSelected(Faults),
+    FaultSelected(FaultType),
     //ImageWidthChanged(u16),
     InputChanged(String),
 }
@@ -269,9 +259,9 @@ impl<'a> Step {
                     *comparator = toggle;
                 }
             }
-            StepMessage::FaultSelected(language) => {
+            StepMessage::FaultSelected(sel) => {
                 if let Step::Fault { selection } = self {
-                    *selection = Some(language);
+                    *selection = Some(sel);
                 }
             }
             /*StepMessage::ImageWidthChanged(new_width) => {
@@ -290,10 +280,10 @@ impl<'a> Step {
     fn title(&self) -> &str {
         match self {
             Step::Welcome => "Welcome",
-            Step::Radio { .. } => "Radio button",
+            Step::Radio { .. } => "Components",
             Step::Fault {..} => "Fault",
             //Step::Image { .. } => "Image",
-            Step::TextInput { .. } => "Text input",
+            Step::TextInput { .. } => "Number of faults",
             Step::End => "End",
         }
     }
@@ -301,9 +291,13 @@ impl<'a> Step {
     fn can_continue(&self) -> bool {
         match self {
             Step::Welcome => true,
-            Step::Radio { .. } => true,
-            Step::Fault { .. } => true,
-            Step::TextInput { value, .. } => !value.is_empty(),
+            Step::Radio { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
+                *intra != false || *extra != false || *reset != false || *resting != false || *threshold != false || *vmem != false || *tau != false || *ts != false || *adder != false || *multiplier != false || *comparator != false
+            },
+            Step::Fault { selection } => { selection.is_some() },
+            Step::TextInput { value, .. } => {
+                !value.is_empty() && value.parse::<i32>().is_ok()
+            },
             //Step::Image { .. } => true,
             Step::End => false,
         }
@@ -313,8 +307,8 @@ impl<'a> Step {
         match self {
             Step::Welcome => Self::welcome(),
             Step::Radio {intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator }
-            => Self::radio(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *adder, *multiplier, *comparator),
-            Step::Fault {selection} => Self::faults(*selection),
+                => Self::radio(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *adder, *multiplier, *comparator),
+            Step::Fault { selection} => Self::faults(*selection),
             Step::TextInput { value} => Self::num_faults(value),
             //Step::Image { width } => Self::image(*width),
             Step::End {} => Self::end(),
@@ -332,10 +326,10 @@ impl<'a> Step {
             .push("Please click the Next bottom to choose the configuration", )
     }
 
-    fn faults(selection: Option<Faults>) -> Column<'a, StepMessage> { //OK
+    fn faults(selection: Option<FaultType>) -> Column<'a, StepMessage> { //OK
         let question = column![
             text("Select the type of fault").size(20),
-            column(Faults::all().iter().cloned()
+            column(FaultType::all().iter().cloned()
                     .map(|fault| { radio(fault,fault,selection,StepMessage::FaultSelected) })
                     .map(Element::from)
                     .collect()
@@ -356,17 +350,17 @@ impl<'a> Step {
         let question = column![text("Select in which components you want to insert a fault:").size(20)];
         Self::container("Components selection")
             .push(question)
-            .push(checkbox(Components::IntraWeights, intra, StepMessage::IntraSelected, ))
-            .push(checkbox(Components::ExtraWeights, extra, StepMessage::ExtraSelected, ))
-            .push(checkbox(Components::ResetPotential, reset, StepMessage::RstSelected, ))
-            .push(checkbox(Components::RestingPotential, resting, StepMessage::RestSelected, ))
-            .push(checkbox(Components::Threshold, threshold, StepMessage::ThresholdSelected, ))
-            .push(checkbox(Components::MembranePotential, vmem, StepMessage::MemSelected, ))
-            .push(checkbox(Components::Tau, tau, StepMessage::TauSelected, ))
-            .push(checkbox(Components::Ts, ts, StepMessage::TsSelected, ))
-            .push(checkbox(Components::Adder, adder, StepMessage::AdderSelected, ))
-            .push(checkbox(Components::Multiplier, multiplier, StepMessage::MulSelected, ))
-            .push(checkbox(Components::ThresholdComparison, comparator, StepMessage::ComparatorSelected, ))
+            .push(checkbox(ComponentType::Intra, intra, StepMessage::IntraSelected ))
+            .push(checkbox(ComponentType::Extra, extra, StepMessage::ExtraSelected ))
+            .push(checkbox(ComponentType::ResetPotential, reset, StepMessage::RstSelected ))
+            .push(checkbox(ComponentType::RestingPotential, resting, StepMessage::RestSelected ))
+            .push(checkbox(ComponentType::Threshold, threshold, StepMessage::ThresholdSelected ))
+            .push(checkbox(ComponentType::MembranePotential, vmem, StepMessage::MemSelected ))
+            .push(checkbox(ComponentType::Tau, tau, StepMessage::TauSelected ))
+            .push(checkbox(ComponentType::Ts, ts, StepMessage::TsSelected ))
+            .push(checkbox(ComponentType::Adder, adder, StepMessage::AdderSelected ))
+            .push(checkbox(ComponentType::Multiplier, multiplier, StepMessage::MulSelected ))
+            .push(checkbox(ComponentType::ThresholdComparator, comparator, StepMessage::ComparatorSelected ))
             .push("Please click the Next bottom to choose the fault type", )
     }
 
@@ -381,7 +375,6 @@ impl<'a> Step {
             .push(text_input)
 
     }
-
     /*fn image(width: u16) -> Column<'a, StepMessage> {
         Self::container("Image")
             .push("An image that tries to keep its aspect ratio.")
@@ -415,73 +408,33 @@ impl<'a> Step {
 fn button<'a, Message: Clone>(label: &str) -> Button<'a, Message> {
     iced::widget::button(
         text(label).horizontal_alignment(alignment::Horizontal::Center),
-    )
-        .padding(12)
-        .width(100)
+    ).padding(12).width(100)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Components {
-    ExtraWeights,
-    IntraWeights,
-    ResetPotential,
-    RestingPotential,
-    Threshold,
-    MembranePotential,
-    Tau,
-    Ts,
-    Adder,
-    Multiplier,
-    ThresholdComparison,
-}
-
-impl From<Components> for String {
-    fn from(component: Components) -> String {
+impl From<ComponentType> for String {
+    fn from(component: ComponentType) -> String {
         String::from(match component {
-            Components::ExtraWeights => "Extra weights",
-            Components::IntraWeights => "Intra weights",
-            Components::ResetPotential => "Reset potential",
-            Components::RestingPotential => "Resting potential",
-            Components::Threshold => "Threshold",
-            Components::MembranePotential => "Membrane potential",
-            Components::Tau => "Tau",
-            Components::Ts => "Ts",
-            Components::Adder => "Adder",
-            Components::Multiplier => "Multiplier",
-            Components::ThresholdComparison => "Threshold comparison"
+            ComponentType::Extra => "Extra weights",
+            ComponentType::Intra => "Intra weights",
+            ComponentType::ResetPotential => "Reset potential",
+            ComponentType::RestingPotential => "Resting potential",
+            ComponentType::Threshold => "Threshold",
+            ComponentType::MembranePotential => "Membrane potential",
+            ComponentType::Tau => "Tau",
+            ComponentType::Ts => "Ts",
+            ComponentType::Adder => "Adder",
+            ComponentType::Multiplier => "Multiplier",
+            ComponentType::ThresholdComparator => "Threshold comparison"
         })
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Faults {
-    Stuck0,
-    Stuck1,
-    BitFlip
-}
-
-impl Faults {
-    fn all() -> [Faults; 3] {
-        [
-            Faults::Stuck0,
-            Faults::Stuck1,
-            Faults::BitFlip
-        ]
-    }
-}
-
-impl From<Faults> for String {
-    fn from(fault: Faults) -> String {
+impl From<FaultType> for String {
+    fn from(fault: FaultType) -> String {
         String::from(match fault {
-            Faults::Stuck0 => "Stuck-at-0",
-            Faults::Stuck1 => "Stuck-at-1",
-            Faults::BitFlip => "Bit flip",
+            FaultType::StuckAt0 => "Stuck-at-0",
+            FaultType::StuckAt1 => "Stuck-at-1",
+            FaultType::TransientBitFlip => "Transient bit flip",
         })
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Layout {
-    Row,
-    Column,
 }
