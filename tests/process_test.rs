@@ -193,7 +193,7 @@ fn test_process_snn_one_layer() {
         ])
         .build();
 
-    let output_spikes = snn.process_input(&vec![vec![1,0,1],vec![0,0,1]]);
+    let output_spikes = snn.process_input(&vec![vec![1,0,1],vec![0,0,1]], None);
     let output_expected: Vec<Vec<u8>> = vec![vec![0,0,0],vec![1,0,1],vec![1,0,1]];
     assert_eq!(output_spikes, output_expected);
 }
@@ -228,7 +228,7 @@ fn test_process_snn_with_more_layers() {
             vec![0.0]])
         .build();
 
-    let output_spikes = snn.process_input(&vec![vec![1,0,1,0],vec![0,0,1,1]]);
+    let output_spikes = snn.process_input(&vec![vec![1,0,1,0],vec![0,0,1,1]], None);
     let output_expected: Vec<Vec<u8>> = vec![vec![1,0,1,1]];
 
     assert_eq!(output_spikes, output_expected);
@@ -251,7 +251,7 @@ fn test_process_snn_with_only_one_input() {
         vec![-0.15, -0.1, 0.0]
     ]).build();
 
-    let output_spikes = snn.process_input(&vec![vec![0],vec![1]]);
+    let output_spikes = snn.process_input(&vec![vec![0],vec![1]], None);
     let output_expected: [[u8; 1]; 3] = [[0],[1],[0]];
 
     assert_eq!(output_spikes, output_expected);
@@ -270,5 +270,5 @@ fn test_snn_wrong_input_spikes() {
             vec![-0.4, 0.0]
         ]).build();
 
-    let _output_spikes = snn.process_input(&vec![vec![0,4],vec![0,1]]);
+    let _output_spikes = snn.process_input(&vec![vec![0,4],vec![0,1]], None);
 }
