@@ -1,18 +1,15 @@
 // possible GUI implementation with iced
 
-use iced::{alignment, Application, executor, Theme, window};
+use iced::{alignment, Application, Color, executor, Theme, window};
 use iced::theme;
-use iced::widget::{
-    checkbox, column, container, horizontal_space, radio, row, text, text_input,
-    Button, Column
-};
+use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, scrollable};
 use iced::{Element, Length, Settings, Command};
+use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::FaultType;
 
-pub fn launch() {
-    //env_logger::init();
-    let _t = Tour::run(Settings::default());
+pub fn launch() -> iced::Result {
+    Tour::run(Settings::default())
 }
 
 pub struct Tour {
@@ -49,7 +46,17 @@ impl Application for Tour {
             Message::NextPressed => {
                 self.steps.advance();
                 if self.steps.current > 1 {
-                    println!("{:?}", self.steps.steps.get(self.steps.current - 1).unwrap());
+                    for i in 1..self.steps.steps.len() {
+                        match self.steps.steps.get(i).unwrap() {
+                            Step::Radio { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
+                                let mut v = Vec::new();
+                                if *intra != false { v.push(ComponentType::Intra) }
+                                if *extra != false { v.push(ComponentType::Extra) }
+                                println!("Componenti selezionate -> {:?}", v);
+                            },
+                            _ => {}
+                        }
+                    }
                 }
                 Command::none()
             },
@@ -90,7 +97,18 @@ impl Application for Tour {
             controls,
         ].max_width(540).spacing(20).padding(20).into();
 
-        container(content).width(Length::Fill).height(Length::Fill).center_x().center_y().into()
+        let scrollable = scrollable(
+            container(if self.debug {
+                content.explain(Color::BLACK)
+            } else {
+                content
+            })
+                .width(Length::Fill)
+                .center_x(),
+        );
+
+        container(scrollable).height(Length::Fill).center_y().into()
+        //container(content).width(Length::Fill).height(Length::Fill).center_x().center_y().into()
     }
 
     fn theme(&self) -> Self::Theme {
