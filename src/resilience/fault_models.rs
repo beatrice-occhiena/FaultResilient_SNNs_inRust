@@ -44,7 +44,6 @@ impl InjectedFault {
     }
     
     pub fn apply_fault(&self, mut var: f64, timestamp: u64) -> f64 {
-        
         if self.fault_type == FaultType::StuckAt0 {
             var = Self::stuck_at_0_fault(var, self.bit_index.unwrap());
         }
@@ -59,12 +58,15 @@ impl InjectedFault {
         var
     }
     pub fn stuck_at_0_fault(var: f64, bit_index: usize) -> f64 {
-        (var.to_bits() & !(1 << bit_index)) as f64
+        let new_var = (var.to_bits() & !(1 << bit_index));
+        f64::from_bits(new_var)
     }
     pub fn stuck_at_1_fault(var: f64, bit_index: usize) -> f64 {
-        (var.to_bits() | (1 << bit_index)) as f64
+        let new_var = (var.to_bits() | (1 << bit_index));
+        f64::from_bits(new_var)
     }
     pub fn bit_flip_fault(var: f64, bit_index: usize) -> f64 {
-        (var.to_bits() ^ (1 << bit_index)) as f64
+        let new_var = (var.to_bits() ^ (1 << bit_index));
+        f64::from_bits(new_var)
     }
 }
