@@ -339,9 +339,9 @@ impl<'a> Step {
     }
 
     fn welcome() -> Column<'a, StepMessage> { //OK
-        Self::container("Welcome!")
-            .push("This is a simple interface for the user to study the resilience of a Spiking Neural Network", )
-            .push("Please click the Next bottom to choose the configuration", )
+        Self::container("SNN resilience analysis tool")
+            .push("Welcome to our simple user interface for studying the resilience of a Spiking Neural Network", )
+            .push("Please click Next to select a configuration", )
     }
 
     fn faults(selection: Option<FaultType>) -> Column<'a, StepMessage> { //OK
@@ -357,7 +357,7 @@ impl<'a> Step {
 
         Self::container("Fault type selection")
             .push(question)
-            .push("Please click the Next button to insert the number of faults to check", )
+            .push("Please click Next to insert the number of faults to check", )
     }
 
     fn radio( //OK
@@ -379,7 +379,7 @@ impl<'a> Step {
             .push(checkbox(ComponentType::Adder, adder, StepMessage::AdderSelected ))
             .push(checkbox(ComponentType::Multiplier, multiplier, StepMessage::MulSelected ))
             .push(checkbox(ComponentType::ThresholdComparator, comparator, StepMessage::ComparatorSelected ))
-            .push("Please click the Next bottom to choose the fault type", )
+            .push("Please click Next to choose the fault type", )
     }
 
     fn num_faults(value: &str) -> Column<'a, StepMessage> { //OK
@@ -442,7 +442,7 @@ impl From<ComponentType> for String {
             ComponentType::Ts => "Ts",
             ComponentType::Adder => "Adder",
             ComponentType::Multiplier => "Multiplier",
-            ComponentType::ThresholdComparator => "Threshold comparison"
+            ComponentType::ThresholdComparator => "Threshold comparator"
         })
     }
 }
