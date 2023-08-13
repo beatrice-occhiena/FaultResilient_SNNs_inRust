@@ -42,19 +42,21 @@ impl InjectedFault {
             bit_index,
         }
     }
-    pub fn apply_fault(&self, mut weight: f64, timestamp: u64) -> f64 {
+    
+    pub fn apply_fault(&self, mut var: f64, timestamp: u64) -> f64 {
+        
         if self.fault_type == FaultType::StuckAt0 {
-            weight = Self::stuck_at_0_fault(weight, self.bit_index.unwrap());
+            var = Self::stuck_at_0_fault(var, self.bit_index.unwrap());
         }
         if self.fault_type == FaultType::StuckAt1 {
-            weight = Self::stuck_at_1_fault(weight, self.bit_index.unwrap());
+            var = Self::stuck_at_1_fault(var, self.bit_index.unwrap());
         }
         if self.fault_type == FaultType::TransientBitFlip {
             if self.time_step.unwrap() == timestamp {
-                weight = Self::bit_flip_fault(weight, self.bit_index.unwrap());
+                var = Self::bit_flip_fault(var, self.bit_index.unwrap());
             }
         }
-        weight
+        var
     }
     pub fn stuck_at_0_fault(var: f64, bit_index: usize) -> f64 {
         (var.to_bits() & !(1 << bit_index)) as f64

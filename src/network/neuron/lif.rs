@@ -1,4 +1,5 @@
 use crate::network::neuron::neuron::Neuron;
+use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::{InjectedFault};
 // Implements the Neuron trait with the leaky integrate-and-fire (LIF) model.
 
@@ -47,6 +48,21 @@ impl Neuron for Lif {
         - @return u8 (0/1)
      */
     fn process_input(&mut self, time: u64, weighted_sum: f64, fault: Option<InjectedFault>) -> u8 {
+
+        // Get the parameters of the neuron
+        let mut reset_potential = self.reset_potential;
+        let mut resting_potential = self.resting_potential;
+        let mut threshold = self.threshold;
+        let mut membrane_potential = self.membrane_potential;
+        let mut tau = self.tau;
+        let mut ts = self.ts;
+
+        // Check if the neuron is faulty in one of its components
+        if fault.is_some() {
+            if fault.unwrap().component_type == ComponentType::ResetPotential
+            
+        }
+
         let dt = (time - self.ts) as f64; // time interval between two input spikes
         let exponential = (-dt/self.tau) as f64;
         self.membrane_potential = self.resting_potential + (self.membrane_potential - self.resting_potential) * exponential.exp() + weighted_sum;

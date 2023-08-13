@@ -1,7 +1,7 @@
 use std::sync::mpsc::{Sender, Receiver};
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
-use crate::resilience::components::{ComponentType};
+use crate::resilience::components::{ComponentType, ComponentCategory};
 use crate::resilience::fault_models::InjectedFault;
 
 
@@ -123,6 +123,9 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
       // then there is no need to send the output spikes to the next layer
       let mut all_zero = true;
 
+      let extra_len = self.extra_weights[0].len();
+      let intra_len = self.intra_weights[0].len();
+
       // for each neuron in the layer compute the membrane potential
       // and check if it spikes
       // -----------------------------------------------------------
@@ -133,9 +136,14 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         // ---> we consider the input spikes
         let mut extra_weights_sum = 0.0;
         for (j, weight) in self.extra_weights[i].iter().enumerate() {
+          
           // If the fault targets the extra weight selected => apply the fault
-          if fault.is_some() && layer_number == fault.unwrap().layer_index && fault.unwrap().component_type == ComponentType::Extra && fault.unwrap().component_index == (i*self.extra_weights[i].len() + j) {
-            extra_weights_sum += &fault.unwrap().apply_fault(*weight, timestamp) * input_spikes[j] as f64;
+          if fault.is_some() 
+            && layer_number == fault.unwrap().layer_index 
+            && fault.unwrap().component_type == ComponentType::Extra 
+            && fault.unwrap().component_index == (i*extra_len + j)
+          {
+            extra_weights_sum += fault.unwrap().apply_fault(*weight, timestamp) * input_spikes[j] as f64;
           }
           else {
             extra_weights_sum += weight * input_spikes[j] as f64;
@@ -149,8 +157,12 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         let mut intra_weights_sum = 0.0;
         for (j, weight) in self.intra_weights[i].iter().enumerate() {
           if i != j {
-            if fault.is_some() && layer_number == fault.unwrap().layer_index && fault.unwrap().component_type == ComponentType::Intra && fault.unwrap().component_index == (i*self.intra_weights[i].len() + j) {
-              intra_weights_sum += &fault.unwrap().apply_fault(*weight, timestamp) * input_spikes[j] as f64;
+            if fault.is_some() 
+              && layer_number == fault.unwrap().layer_index 
+              && fault.unwrap().component_type == ComponentType::Intra 
+              && fault.unwrap().component_index == (i*intra_len + j)
+            {
+              intra_weights_sum += fault.unwrap().apply_fault(*weight, timestamp) * input_spikes[j] as f64;
             }
             else {
               intra_weights_sum += weight * self.prev_output[j] as f64;
@@ -166,7 +178,17 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
 
         // compute the membrane potential and check if it spikes
         // and update the output spikes vector
-        let spike = neuron.process_input(timestamp, weights_sum, fault);
+        let spike;
+        if fault.is_some() 
+          && fault.unwrap().layer_index == layer_number 
+          && fault.unwrap().component_category != ComponentCategory::Connection 
+        { //the fault still has to be injected
+          spike = neuron.process_input(timestamp, weights_sum, fault);
+        } 
+        else 
+        { //there is no fault or it has been already injected
+          spike = neuron.process_input(timestamp, weights_sum, None);
+        }
         output_spikes.push(spike);
 
         // update the flag to send the output spikes to the next layer
