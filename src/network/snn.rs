@@ -165,7 +165,13 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
       // create a new thread
       let handle = thread::spawn(move || {
         let mut layer = layer.lock().unwrap();
-        layer.process_input(layer_rc,layer_tx, injected_fault);
+
+        if injected_fault.is_some() && injected_fault.unwrap().layer_index == i {
+            layer.process_input(layer_rc,layer_tx, injected_fault);
+        }
+        else {
+            layer.process_input(layer_rc,layer_tx, None);
+        }
       });
 
       // push the handle in the vector
