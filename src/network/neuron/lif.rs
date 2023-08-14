@@ -1,6 +1,6 @@
 use crate::network::neuron::neuron::Neuron;
 use crate::resilience::components::ComponentType;
-use crate::resilience::fault_models::{InjectedFault};
+use crate::resilience::fault_models::InjectedFault;
 // Implements the Neuron trait with the leaky integrate-and-fire (LIF) model.
 
 #[derive(Debug)]
@@ -50,6 +50,8 @@ impl Neuron for Lif {
     fn process_input(&mut self, time: u64, weighted_sum: f64, fault: Option<InjectedFault>) -> u8 {
 
         // Get the parameters of the neuron
+        // => In this way we are not soiling the original values of the built network with the fault,
+        //    since it's sufficient to inject the fault only when the neuron is processed
         let mut reset_potential = self.reset_potential;
         let mut resting_potential = self.resting_potential;
         let mut threshold = self.threshold;
@@ -79,12 +81,12 @@ impl Neuron for Lif {
             }
         }
 
-        let dt = (time - self.ts) as f64; // time interval between two input spikes
-        let exponential = (-dt/self.tau) as f64;
-        self.membrane_potential = self.resting_potential + (self.membrane_potential - self.resting_potential) * exponential.exp() + weighted_sum;
+        let dt = (time - ts) as f64; // time interval between two input spikes
+        let exponential = (-dt/tau) as f64;
+        self.membrane_potential = resting_potential + (membrane_potential - resting_potential) * exponential.exp() + weighted_sum;
         self.ts = time;
-        if self.membrane_potential > self.threshold {
-            self.membrane_potential = self.reset_potential;
+        if self.membrane_potential > threshold {
+            self.membrane_potential = reset_potential;
             1 // spike only if v_mem > v_th
         }
         else {

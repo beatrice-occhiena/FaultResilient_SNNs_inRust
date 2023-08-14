@@ -43,7 +43,7 @@ impl InjectedFault {
         }
     }
 
-    pub fn apply_fault_f64(&self, mut var: f64, timestamp: u64) -> f64 {
+    pub fn apply_fault_f64(&self, var: f64, timestamp: u64) -> f64 {
 
         // Convert f64 to u64 to get access to its representation in bits
         let mut var_in_bits = var.to_bits();

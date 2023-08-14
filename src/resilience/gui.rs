@@ -4,7 +4,6 @@ use iced::{alignment, Application, Color, executor, Theme, window};
 use iced::theme;
 use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, scrollable};
 use iced::{Element, Length, Settings, Command};
-use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::FaultType;
 
