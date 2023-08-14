@@ -3,7 +3,7 @@ use rand::Rng;
 // Import random number generator
 use crate::network::neuron::neuron::Neuron;
 use crate::network::snn::SNN;
-use crate::resilience::components::{ComponentType};
+use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::{FaultType, InjectedFault};
 
 // Struct to hold the fault injection parameters defined by the user
@@ -73,7 +73,8 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
             // Process the input sequence with the injected fault
             self.process_input(&input_spikes, Some(injected_fault));
 
-            // ...
+            // #to_do : ANALYSIS
+            // #to_do : MULTI-THREADING for processing multiple faults in parallel ???
         }
 
     }
