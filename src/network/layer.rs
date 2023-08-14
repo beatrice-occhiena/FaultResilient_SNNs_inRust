@@ -160,7 +160,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
               && fault.unwrap().component_type == ComponentType::Intra 
               && fault.unwrap().component_index == (i*intra_len + j)
             {
-              intra_weights_sum += fault.unwrap().apply_fault_f64(*weight, timestamp) * input_spikes[j] as f64;
+              intra_weights_sum += fault.unwrap().apply_fault_f64(*weight, timestamp) * self.prev_output[j] as f64;
             }
             else {
               intra_weights_sum += weight * self.prev_output[j] as f64;

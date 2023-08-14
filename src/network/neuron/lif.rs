@@ -61,6 +61,8 @@ impl Neuron for Lif {
             weighted_sum = fault.unwrap().apply_fault_f64(weighted_sum, time);
         }
 
+        // Compute the membrane potential at the time instant t
+        // and check if the neuron spikes
         let mut output_spike: u8;
         let dt = (time - ts) as f64; // time interval between two input spikes
         let exponential = (-dt/tau) as f64;
