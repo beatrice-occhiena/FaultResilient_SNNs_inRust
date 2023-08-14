@@ -89,4 +89,26 @@ impl InjectedFault {
         var ^ (1 << bit_index)
     }
 
+    // This function simulate the effect of a fault on a variable of dimension 1 bit
+    pub fn apply_fault_to_spike(&self, spike_value: u8, timestamp: u64) -> u8 {
+        
+        if self.fault_type == FaultType::StuckAt0 {
+            0
+        }
+        else if self.fault_type == FaultType::StuckAt1 {
+            1
+        }
+        else if self.fault_type == FaultType::TransientBitFlip {
+            if self.time_step.unwrap() == timestamp {
+                1 - spike_value
+            }
+            else {
+                spike_value
+            }
+        }
+        else {
+            spike_value
+        }
+    }
+
 }
