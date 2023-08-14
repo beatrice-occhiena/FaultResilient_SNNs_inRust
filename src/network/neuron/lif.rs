@@ -59,8 +59,24 @@ impl Neuron for Lif {
 
         // Check if the neuron is faulty in one of its components
         if fault.is_some() {
-            if fault.unwrap().component_type == ComponentType::ResetPotential
-            
+            if fault.unwrap().component_type == ComponentType::ResetPotential {
+                reset_potential = fault.unwrap().apply_fault_f64(reset_potential, time);
+            }
+            else if fault.unwrap().component_type == ComponentType::RestingPotential {
+                resting_potential = fault.unwrap().apply_fault_f64(resting_potential, time);
+            }
+            else if fault.unwrap().component_type == ComponentType::Threshold {
+                threshold = fault.unwrap().apply_fault_f64(threshold, time);
+            }
+            else if fault.unwrap().component_type == ComponentType::MembranePotential {
+                membrane_potential = fault.unwrap().apply_fault_f64(membrane_potential, time);
+            }
+            else if fault.unwrap().component_type == ComponentType::Tau {
+                tau = fault.unwrap().apply_fault_f64(tau, time);
+            }
+            else if fault.unwrap().component_type == ComponentType::Ts {
+                ts = fault.unwrap().apply_fault_u64(ts, time);
+            }
         }
 
         let dt = (time - self.ts) as f64; // time interval between two input spikes

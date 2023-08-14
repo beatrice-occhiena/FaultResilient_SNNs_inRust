@@ -142,7 +142,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
             && fault.unwrap().component_type == ComponentType::Extra 
             && fault.unwrap().component_index == (i*extra_len + j)
           {
-            extra_weights_sum += fault.unwrap().apply_fault(*weight, timestamp) * input_spikes[j] as f64;
+            extra_weights_sum += fault.unwrap().apply_fault_f64(*weight, timestamp) * input_spikes[j] as f64;
           }
           else {
             extra_weights_sum += weight * input_spikes[j] as f64;
@@ -160,7 +160,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
               && fault.unwrap().component_type == ComponentType::Intra 
               && fault.unwrap().component_index == (i*intra_len + j)
             {
-              intra_weights_sum += fault.unwrap().apply_fault(*weight, timestamp) * input_spikes[j] as f64;
+              intra_weights_sum += fault.unwrap().apply_fault_f64(*weight, timestamp) * input_spikes[j] as f64;
             }
             else {
               intra_weights_sum += weight * self.prev_output[j] as f64;
@@ -180,11 +180,11 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         if fault.is_some()
           && fault.unwrap().component_category != ComponentCategory::Connection
           && fault.unwrap().component_index == i
-        { //the fault still has to be injected
+        { // the fault still has to be injected in this neuron
           spike = neuron.process_input(timestamp, weights_sum, fault);
         } 
         else 
-        { //there is no fault to be injected in this neuron
+        { // there is no fault to be injected in this neuron
           spike = neuron.process_input(timestamp, weights_sum, None);
         }
         output_spikes.push(spike);
