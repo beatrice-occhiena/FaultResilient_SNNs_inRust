@@ -165,7 +165,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
       // create a new thread
       let handle = thread::spawn(move || {
         let mut layer = layer.lock().unwrap();
-        layer.process_input(layer_rc,layer_tx, injected_fault, i);
+        layer.process_input(layer_rc,layer_tx, injected_fault);
       });
 
       // push the handle in the vector
@@ -225,7 +225,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
     SNN::<N>::receive_output_spike_events(output_rc)
   }
 
-  fn create_and_spawn_threads(&self, layer_rc: Receiver<SpikeEvent>, injected_fault: Option<InjectedFault>) -> (Vec<JoinHandle<()>>, Receiver<SpikeEvent>) {
+  fn create_and_spawn_threads(&self, layer_rc: Receiver<SpikeEvent>, fault: Option<InjectedFault>) -> (Vec<JoinHandle<()>>, Receiver<SpikeEvent>) {
     
     let mut curr_layer_rc = layer_rc;
     
@@ -242,7 +242,13 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
         // create a new thread
         let handle = thread::spawn(move || {
             let mut layer = layer.lock().unwrap();
-            layer.process_input(curr_layer_rc,curr_layer_tx, injected_fault, i);
+
+            if fault.is_some() && fault.unwrap().layer_index == i {
+                layer.process_input(curr_layer_rc,curr_layer_tx, fault);
+            }
+            else {
+                layer.process_input(curr_layer_rc,curr_layer_tx, None);
+            }
         });
 
         // push the handle in the vector

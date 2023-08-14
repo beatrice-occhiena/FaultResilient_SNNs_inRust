@@ -105,7 +105,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     - @param input_rc: the channel to receive the input spike event from the previous layer
     - @param output_tx: the channel to send the output spike event to the next layer
    */
-  pub fn process_input(&mut self, input_rc: Receiver<SpikeEvent>, output_tx: Sender<SpikeEvent>, fault: Option<InjectedFault>, layer_number: usize) {
+  pub fn process_input(&mut self, input_rc: Receiver<SpikeEvent>, output_tx: Sender<SpikeEvent>, fault: Option<InjectedFault>) {
     
     // reset the neurons in the layer to reuse the SNN
     // for future inferences without building a new one
@@ -138,8 +138,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         for (j, weight) in self.extra_weights[i].iter().enumerate() {
           
           // If the fault targets the extra weight selected => apply the fault
-          if fault.is_some() 
-            && layer_number == fault.unwrap().layer_index 
+          if fault.is_some()
             && fault.unwrap().component_type == ComponentType::Extra 
             && fault.unwrap().component_index == (i*extra_len + j)
           {
@@ -157,8 +156,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         let mut intra_weights_sum = 0.0;
         for (j, weight) in self.intra_weights[i].iter().enumerate() {
           if i != j {
-            if fault.is_some() 
-              && layer_number == fault.unwrap().layer_index 
+            if fault.is_some()
               && fault.unwrap().component_type == ComponentType::Intra 
               && fault.unwrap().component_index == (i*intra_len + j)
             {
@@ -179,14 +177,14 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
         // compute the membrane potential and check if it spikes
         // and update the output spikes vector
         let spike;
-        if fault.is_some() 
-          && fault.unwrap().layer_index == layer_number 
-          && fault.unwrap().component_category != ComponentCategory::Connection 
+        if fault.is_some()
+          && fault.unwrap().component_category != ComponentCategory::Connection
+          && fault.unwrap().component_index == i
         { //the fault still has to be injected
           spike = neuron.process_input(timestamp, weights_sum, fault);
         } 
         else 
-        { //there is no fault or it has been already injected
+        { //there is no fault to be injected in this neuron
           spike = neuron.process_input(timestamp, weights_sum, None);
         }
         output_spikes.push(spike);
