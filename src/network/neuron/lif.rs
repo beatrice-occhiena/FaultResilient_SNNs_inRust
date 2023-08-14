@@ -47,7 +47,7 @@ impl Neuron for Lif {
         - @param weights_sum (f64) #to_do: check if it is correct
         - @return u8 (0/1)
      */
-    fn process_input(&mut self, time: u64, weighted_sum: f64, fault: Option<InjectedFault>) -> u8 {
+    fn process_input(&mut self, time: u64, mut weighted_sum: f64, fault: Option<InjectedFault>) -> u8 {
 
         // Get the parameters of the neuron checking during runtime if there is a fault to inject
         // => In this way we are not soiling the original values of the built network with the fault,
@@ -55,7 +55,11 @@ impl Neuron for Lif {
         let (reset_potential,resting_potential, threshold, membrane_potential, tau, ts) 
             = self.read_memory_areas(fault, time);
 
-        // Possible fault in the adder/multiplier 
+        // Possible fault in the adder/multiplier
+        // #to_do: CHECK CORRECTNESS !!!
+        if fault.is_some() && (fault.unwrap().component_type == ComponentType::Adder || fault.unwrap().component_type == ComponentType::Multiplier) {
+            weighted_sum = fault.unwrap().apply_fault_f64(weighted_sum, time);
+        }
 
         let mut output_spike: u8;
         let dt = (time - ts) as f64; // time interval between two input spikes
