@@ -1,5 +1,130 @@
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use group02::network::config::SNNBuilder;
+use group02::network::neuron::lif::Lif;
 use group02::resilience::gui;
 
 fn main() {
-    let _ = gui::launch();
+    //let _ = gui::launch();
+
+    /* Building of a network with an input layer of 784 neurons an hidden layer of 128 neurons and an output layer of 10 neurons */
+    let input_length = 784;
+    let hidden_length = 128;
+    let output_length = 10;
+    let spike_length = 100;
+    let batch_size = 256;
+
+    // Getting neurons and extra_weights from files
+    let hidden_neurons : Vec<Lif> = get_neurons(hidden_length);
+    let output_neurons : Vec<Lif> = get_neurons(output_length);
+    let extra_weights1 : Vec<Vec<f64>> = get_extra_weights("./weightsFile1.txt", input_length, hidden_length);
+    let extra_weights2 : Vec<Vec<f64>> = get_extra_weights("./weightsFile2.txt",hidden_length, output_length);
+
+    // Building intra_weights
+    let intra_weights1 : Vec<Vec<f64>> = get_intra_weights(hidden_length);
+    let intra_weights2 : Vec<Vec<f64>> = get_intra_weights(output_length);
+
+    //Building the SNN
+    let snn = SNNBuilder::new(input_length)
+        .add_layer(hidden_neurons, extra_weights1, intra_weights1)
+        .add_layer(output_neurons, extra_weights2, intra_weights2)
+        .build();
+
+    // Getting input spike train from file
+    let input_spike_train : Vec<Vec<Vec<u8>>> = get_input_spike_train("./test.txt", input_length, spike_length, batch_size);
+
+    // Processing the input
+    for input_spikes in input_spike_train {
+        let output_spikes = snn.process_input(&input_spikes, None);
+        let mut vec_sum = Vec::new();
+        for o in output_spikes {
+            let mut sum = 0;
+            for i in o {
+                sum += i;
+            }
+            vec_sum.push(sum);
+            //println!("{}", sum);
+        }
+        let mut max = 0;
+        let mut max_j = 0;
+        for (j,v) in vec_sum.iter().enumerate() {
+            if *v > max {
+                max = *v;
+                max_j = j;
+            }
+        }
+        println!("max -> {}", max_j);
+    }
 }
+
+fn get_neurons(num_neurons: usize) -> Vec<Lif> {
+    // Lif parameters
+    //let resting_potential = 0.0;
+    let beta = 0.9375;
+    // Building the vector of Lif with the above parameters
+    let mut neurons = Vec::new();
+    for _ in 0..num_neurons {
+        neurons.push(Lif::new(beta, 1.0));
+    }
+    neurons
+}
+
+fn get_extra_weights(filename: &str, input_length: usize, num_neurons: usize) -> Vec<Vec<f64>> {
+    // Opening the file
+    let f = File::open(filename).expect("Error: The file weightsOut.txt doesn't exist");
+    // Initialize the matrix of weights to all zeros
+    let mut extra_weights = vec![vec![0f64; input_length]; num_neurons];
+    // Reading the file by lines
+    let reader = BufReader::new(f);
+    for (i,line) in reader.lines().enumerate() {
+        // Each line is a String -> I have to split it and convert to f64
+        let mut j = 0;
+        for w in line.unwrap().split(" ") {
+            if w != "" {
+                extra_weights[i][j] = w.parse::<f64>().expect("Cannot convert to f64");
+                j+=1;
+            }
+        }
+    }
+    extra_weights
+}
+
+fn get_intra_weights(num_neurons: usize) -> Vec<Vec<f64>> {
+    // The intra weights are not stored in a file but are all set to the value -15.0
+    let w = 0.0;
+    let mut intra_weights = vec![vec![0f64; num_neurons]; num_neurons];
+    for i in 0..num_neurons {
+        for j in 0..num_neurons {
+            if i != j {
+                intra_weights[i][j] = w;
+            }
+        }
+    }
+    intra_weights
+}
+
+fn get_input_spike_train(filename: &str, input_length: usize, spike_length: usize, batch_size: usize) -> Vec<Vec<Vec<u8>>> {
+    // Opening the file
+    let f = File::open(filename).expect("Error: The file spikeTrains.txt doesn't exist");
+    // Initialize the matrix of weights to all zeros
+    let mut spike_trains = vec![vec![vec![0u8; spike_length]; input_length]; batch_size];
+    // Reading the file by lines
+    let reader = BufReader::new(f);
+    let mut k = 0;
+    for (i,line) in reader.lines().enumerate() {
+        // Each line is a String -> I have to split it and convert to f64
+        if i==0 || line.as_ref().unwrap().eq("# New slice") {
+            k+=1;
+        }
+        else {
+            let lu8 = line.unwrap().chars().filter(|c| *c != ' ').map(|c|  {
+                c.to_digit(10).unwrap() as u8
+            }).collect::<Vec<u8>>();
+            for (j, w) in lu8.into_iter().enumerate() {
+                spike_trains[k-1][j][i-1-(k-1)*spike_length-(k-1)] = w;
+            }
+        }
+    }
+    spike_trains
+}
+

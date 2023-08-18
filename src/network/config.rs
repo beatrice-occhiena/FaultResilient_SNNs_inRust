@@ -86,11 +86,13 @@ impl<N: Neuron + Clone + Send> SNNBuilder<N> {
                     panic!("Error: The number of neurons in the previous layer should be equal to the number of columns of the extra_weights matrix");
                 }
             }
+            /*
             for w in row {
                 if *w < 0.0 {
                     panic!("Error: Extra weights should be positive");
                 }
             }
+             */
         }
     }
 
