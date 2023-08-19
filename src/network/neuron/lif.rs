@@ -7,6 +7,7 @@ use crate::resilience::fault_models::InjectedFault;
 pub struct Lif {
     reset_potential: f64, // reset potential
     resting_potential: f64, // resting potential
+    //beta: f64,
     threshold: f64, // threshold potential
     membrane_potential: f64, // membrane potential
     tau: f64, // time constant
@@ -19,18 +20,27 @@ impl Lif {
             reset_potential,
             resting_potential,
             threshold,
-            membrane_potential: resting_potential, // at the beginning the membrane potential is equal to the resting potential
+            //membrane_potential: resting_potential, // at the beginning the membrane potential is equal to the resting potential
+            membrane_potential: 0.0,
             tau,
             ts: 0 // starting from time instant 0
         }
     }
+    /*pub fn new(beta: f64, threshold: f64) -> Self {
+        Lif {
+            beta,
+            threshold,
+            membrane_potential: 0.0, // at the beginning the membrane potential is equal to 0
+            ts: 0 // starting from time instant 0
+        }
+    }*/
 
      // Getters for the Lif parameters
     pub fn get_v_reset(&self) -> f64 { self.reset_potential }
     pub fn get_v_rest(&self) -> f64 { self.resting_potential }
     pub fn get_v_th(&self) -> f64 { self.threshold }
     pub fn get_v_mem(&self) -> f64 { self.membrane_potential }
-    pub fn get_tau(&self) -> f64 { self.tau }
+    //pub fn get_tau(&self) -> f64 { self.tau }
     pub fn get_ts(&self) -> u64 { self.ts }
     
     // Setters for potential parameters of Lif
@@ -41,18 +51,18 @@ impl Lif {
 
 impl Neuron for Lif {
     /**
-        Computes the membrane potential of the neuron at the time instant t
-        and returns 1 if the neuron spikes, 0 otherwise.
-        - @param time (u64)
-        - @param weights_sum (f64) #to_do: check if it is correct
-        - @return u8 (0/1)
+    Computes the membrane potential of the neuron at the time instant t
+    and returns 1 if the neuron spikes, 0 otherwise.
+    - @param time (u64)
+    - @param weights_sum (f64) #to_do: check if it is correct
+    - @return u8 (0/1)
      */
     fn process_input(&mut self, time: u64, mut weighted_sum: f64, fault: Option<InjectedFault>) -> u8 {
 
         // Get the parameters of the neuron checking during runtime if there is a fault to inject
         // => In this way we are not soiling the original values of the built network with the fault,
         //    since it's sufficient to inject the fault only when the neuron is processed
-        let (reset_potential,resting_potential, threshold, membrane_potential, tau, ts) 
+        let (mut reset_potential,resting_potential, threshold, membrane_potential, tau, ts)
             = self.read_memory_areas(fault, time);
 
         // Possible fault in the adder/multiplier
@@ -67,6 +77,7 @@ impl Neuron for Lif {
         let dt = (time - ts) as f64; // time interval between two input spikes
         let exponential = (-dt/tau) as f64;
         self.membrane_potential = resting_potential + (membrane_potential - resting_potential) * exponential.exp() + weighted_sum;
+        reset_potential = self.membrane_potential - threshold;
         self.ts = time;
         if self.membrane_potential > threshold {
             self.membrane_potential = reset_potential;
@@ -80,23 +91,21 @@ impl Neuron for Lif {
         // - stuck-at-0: the neuron never spikes
         // - stuck-at-1: the neuron always spikes
         // - bit-flip: the neuron spikes when v_mem < v_th
-        if fault.is_some() && fault.unwrap().component_type == ComponentType::Threshold{
+        if fault.is_some() && fault.unwrap().component_type == ComponentType::ThresholdComparator{
             output_spike = fault.unwrap().apply_fault_to_spike(output_spike, time);
         }
 
         output_spike
     }
-
     // Reset the membrane potential to the resting potential and the time instant to 0
     fn initialize(&mut self) {
-        self.membrane_potential = self.resting_potential;
+        self.membrane_potential = 0.0;
         self.ts = 0;
     }
 }
 
 impl Lif {
     fn read_memory_areas(&mut self, fault: Option<InjectedFault>, time: u64) -> (f64, f64, f64, f64, f64, u64) {
-
         // Get the parameters of the neuron
         // => In this way we are not soiling the original values of the built network with the fault,
         //    since it's sufficient to inject the fault only when the neuron is processed
@@ -121,7 +130,6 @@ impl Lif {
             }
         }
         (reset_potential, resting_potential, threshold, membrane_potential, tau, ts)
-
     }
 }
 
@@ -130,6 +138,7 @@ impl Clone for Lif {
         Lif {
             reset_potential: self.reset_potential,
             resting_potential: self.resting_potential,
+            //beta: self.beta,
             threshold: self.threshold,
             membrane_potential: self.membrane_potential,
             tau: self.tau,

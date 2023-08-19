@@ -47,7 +47,7 @@ impl Application for Tour {
                 if self.steps.current > 1 {
                     for i in 1..self.steps.steps.len() {
                         match self.steps.steps.get(i).unwrap() {
-                            Step::Radio { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
+                            Step::Radio { intra,extra,reset: _,resting: _, threshold: _, vmem: _, tau: _, ts: _, adder: _, multiplier: _, comparator: _ } => {
                                 let mut v = Vec::new();
                                 if *intra != false { v.push(ComponentType::Intra) }
                                 if *extra != false { v.push(ComponentType::Extra) }

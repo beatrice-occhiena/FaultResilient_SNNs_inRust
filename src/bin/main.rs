@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use group02::network::config::SNNBuilder;
 use group02::network::neuron::lif::Lif;
 use group02::resilience::gui;
@@ -17,8 +17,8 @@ fn main() {
     // Getting neurons and extra_weights from files
     let hidden_neurons : Vec<Lif> = get_neurons(hidden_length);
     let output_neurons : Vec<Lif> = get_neurons(output_length);
-    let extra_weights1 : Vec<Vec<f64>> = get_extra_weights("./weightsFile1.txt", input_length, hidden_length);
-    let extra_weights2 : Vec<Vec<f64>> = get_extra_weights("./weightsFile2.txt",hidden_length, output_length);
+    let extra_weights1 : Vec<Vec<f64>> = get_extra_weights("./parameters/weightsFile1.txt", input_length, hidden_length);
+    let extra_weights2 : Vec<Vec<f64>> = get_extra_weights("./parameters/weightsFile2.txt",hidden_length, output_length);
 
     // Building intra_weights
     let intra_weights1 : Vec<Vec<f64>> = get_intra_weights(hidden_length);
@@ -31,8 +31,9 @@ fn main() {
         .build();
 
     // Getting input spike train from file
-    let input_spike_train : Vec<Vec<Vec<u8>>> = get_input_spike_train("./test.txt", input_length, spike_length, batch_size);
+    let input_spike_train : Vec<Vec<Vec<u8>>> = get_input_spike_train("./inputSpikes.txt", input_length, spike_length, batch_size);
 
+    let mut vec_max = Vec::new();
     // Processing the input
     for input_spikes in input_spike_train {
         let output_spikes = snn.process_input(&input_spikes, None);
@@ -43,7 +44,6 @@ fn main() {
                 sum += i;
             }
             vec_sum.push(sum);
-            //println!("{}", sum);
         }
         let mut max = 0;
         let mut max_j = 0;
@@ -54,24 +54,30 @@ fn main() {
             }
         }
         println!("max -> {}", max_j);
+        vec_max.push(max_j);
     }
+    // Writing the results to output file
+    write_to_output_file("./output.txt", vec_max);
 }
 
 fn get_neurons(num_neurons: usize) -> Vec<Lif> {
     // Lif parameters
-    //let resting_potential = 0.0;
-    let beta = 0.9375;
+    let resting_potential = 0.0;
+    let reset_potential = 0.0;
+    let beta : f32 = 0.9375;
+    let tau : f64 = (-1.0 / beta.ln()) as f64;
     // Building the vector of Lif with the above parameters
     let mut neurons = Vec::new();
     for _ in 0..num_neurons {
-        neurons.push(Lif::new(beta, 1.0));
+        //neurons.push(Lif::new(beta, 1.0));
+        neurons.push(Lif::new(reset_potential, resting_potential, 1.0, tau));
     }
     neurons
 }
 
 fn get_extra_weights(filename: &str, input_length: usize, num_neurons: usize) -> Vec<Vec<f64>> {
     // Opening the file
-    let f = File::open(filename).expect("Error: The file weightsOut.txt doesn't exist");
+    let f = File::open(filename).expect("Error: The file weights doesn't exist");
     // Initialize the matrix of weights to all zeros
     let mut extra_weights = vec![vec![0f64; input_length]; num_neurons];
     // Reading the file by lines
@@ -126,5 +132,19 @@ fn get_input_spike_train(filename: &str, input_length: usize, spike_length: usiz
         }
     }
     spike_trains
+}
+
+fn write_to_output_file(filename: &str, max_j: Vec<usize>) {
+    // Creating or opening the file
+    let mut output_file = File::create(filename).expect("Error: something went wrong creating the file");
+    // Writing in the file
+    for i in 0..max_j.len() {
+        if i == max_j.len() - 1 {
+            output_file.write_all(format!("{}", max_j[i]).as_bytes()).expect("Something went wrong writing in the file");
+        }
+        else {
+            output_file.write_all(format!("{}, ", max_j[i]).as_bytes()).expect("Something went wrong writing in the file");
+        }
+    }
 }
 
