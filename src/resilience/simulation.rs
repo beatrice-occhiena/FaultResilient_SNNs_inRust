@@ -7,6 +7,7 @@ use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::{FaultType, InjectedFault};
 
 // Struct to hold the fault injection parameters defined by the user
+#[derive(Debug, Clone)]
 pub struct UserSelection {
     pub components: Vec<ComponentType>,
     pub fault_type: FaultType,

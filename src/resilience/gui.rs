@@ -4,8 +4,11 @@ use iced::{alignment, Application, Color, executor, Theme, window};
 use iced::theme;
 use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, scrollable};
 use iced::{Element, Length, Settings, Command};
+use crate::network::neuron::lif::Lif;
+use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::FaultType;
+use crate::resilience::simulation::UserSelection;
 
 pub fn launch() -> iced::Result {
     Tour::run(Settings::default())
@@ -14,6 +17,40 @@ pub fn launch() -> iced::Result {
 pub struct Tour {
     steps: Steps,
     debug: bool,
+    count: usize
+}
+
+impl Tour {
+    pub fn create_selection(&self) -> UserSelection {
+        let mut v = Vec::new();
+        let mut fault = FaultType::StuckAt0;
+        let mut num_faults= 0;
+        for i in 1..self.steps.steps.len() {
+            match self.steps.steps.get(i).unwrap() {
+                Step::Radio { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator} => {
+                    if *intra != false { v.push(ComponentType::Intra) }
+                    if *extra != false { v.push(ComponentType::Extra) }
+                    if *reset != false { v.push(ComponentType::ResetPotential) }
+                    if *resting != false { v.push(ComponentType::RestingPotential) }
+                    if *threshold != false { v.push(ComponentType::Threshold) }
+                    if *vmem != false { v.push(ComponentType::MembranePotential) }
+                    if *tau != false { v.push(ComponentType::Tau) }
+                    if *ts != false { v.push(ComponentType::Ts) }
+                    if *adder != false { v.push(ComponentType::Adder) }
+                    if *multiplier != false { v.push(ComponentType::Multiplier) }
+                    if *comparator != false { v.push(ComponentType::ThresholdComparator) }
+                },
+                Step::Fault {selection} => {
+                    fault = selection.unwrap();
+                }
+                Step::TextInput {value} => {
+                    num_faults = value.parse::<u64>().unwrap();
+                }
+                _ => {}
+            }
+        }
+        UserSelection::new(v, fault, num_faults,vec![vec![1,0,1],vec![0,0,1]])
+    }
 }
 
 impl Application for Tour {
@@ -27,6 +64,7 @@ impl Application for Tour {
             Tour {
                 steps: Steps::new(),
                 debug: false,
+                count: 0
             },
             Command::none()
         )
@@ -44,18 +82,14 @@ impl Application for Tour {
             },
             Message::NextPressed => {
                 self.steps.advance();
-                if self.steps.current > 1 {
-                    for i in 1..self.steps.steps.len() {
-                        match self.steps.steps.get(i).unwrap() {
-                            Step::Radio { intra,extra,reset: _,resting: _, threshold: _, vmem: _, tau: _, ts: _, adder: _, multiplier: _, comparator: _ } => {
-                                let mut v = Vec::new();
-                                if *intra != false { v.push(ComponentType::Intra) }
-                                if *extra != false { v.push(ComponentType::Extra) }
-                                println!("Componenti selezionate -> {:?}", v);
-                            },
-                            _ => {}
-                        }
-                    }
+                if self.steps.is_last() && self.count == 0 {
+                    self.count += 1;
+                    let user_selection = self.create_selection();
+                    let s = &mut self.steps.steps[4];
+                    match s {
+                        Step::Choices { ref mut c } => { *c = user_selection }
+                        _ => {}
+                    };
                 }
                 Command::none()
             },
@@ -107,12 +141,9 @@ impl Application for Tour {
         );
 
         container(scrollable).height(Length::Fill).center_y().into()
-        //container(content).width(Length::Fill).height(Length::Fill).center_x().center_y().into()
     }
 
-    fn theme(&self) -> Self::Theme {
-        Theme::Dark
-    }
+    //fn theme(&self) -> Self::Theme { Theme::Dark }
 }
 
 #[derive(Debug, Clone)]
@@ -141,6 +172,12 @@ impl Steps {
                 },
                 Step::Fault { selection: None },
                 Step::TextInput { value: String::new() },
+                Step::Choices { c: UserSelection {
+                    components: vec![],
+                    fault_type: FaultType::StuckAt0,
+                    num_faults: 0,
+                    input_sequence: vec![],
+                }},
                 //Step::Image { width: 300 },
                 Step::End,
             ],
@@ -176,6 +213,10 @@ impl Steps {
         self.current == self.steps.len() - 1
     }
 
+    fn is_last(&self) -> bool {
+        self.current == self.steps.len() - 2
+    }
+
     fn can_continue(&self) -> bool {
         self.current + 1 < self.steps.len()
             && self.steps[self.current].can_continue()
@@ -196,6 +237,7 @@ enum Step {
         adder: bool, multiplier: bool, comparator: bool,
     },
     TextInput { value: String },
+    Choices { c: UserSelection },
     //Image { width: u16, },
     End,
 }
@@ -301,6 +343,7 @@ impl<'a> Step {
             Step::Fault {..} => "Fault",
             //Step::Image { .. } => "Image",
             Step::TextInput { .. } => "Number of faults",
+            Step::Choices { .. } => "Choices",
             Step::End => "End",
         }
     }
@@ -313,8 +356,9 @@ impl<'a> Step {
             },
             Step::Fault { selection } => { selection.is_some() },
             Step::TextInput { value, .. } => {
-                !value.is_empty() && value.parse::<i32>().is_ok()
+                !value.is_empty() && value.parse::<u64>().is_ok()
             },
+            Step::Choices { .. } => true,
             //Step::Image { .. } => true,
             Step::End => false,
         }
@@ -327,6 +371,9 @@ impl<'a> Step {
                 => Self::radio(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *adder, *multiplier, *comparator),
             Step::Fault { selection} => Self::faults(*selection),
             Step::TextInput { value} => Self::num_faults(value),
+            Step::Choices { c } => {
+                Self::choices(c)
+            },
             //Step::Image { width } => Self::image(*width),
             Step::End {} => Self::end(),
         }
@@ -383,7 +430,7 @@ impl<'a> Step {
 
     fn num_faults(value: &str) -> Column<'a, StepMessage> { //OK
         let question = column![text("Type the number of faults you want to insert:").size(20)];
-        let text_input = text_input("Type something to continue...", value, /* on_change */)
+        let text_input = text_input("Type something to continue...", value)
             .on_input(StepMessage::InputChanged)
             .padding(10)
             .size(30);
@@ -391,6 +438,45 @@ impl<'a> Step {
             .push(question)
             .push(text_input)
 
+    }
+
+    fn choices(u: &UserSelection) -> Column<'a, StepMessage> { //OK
+        let mut fault = Vec::new();
+        fault.push(u.fault_type);
+        let mut num = Vec::new();
+        num.push(u.num_faults);
+        let question = column![
+            text("Components selected:").size(20),
+            column(u.components.iter().cloned()
+                    .map(|c| { checkbox(c, true, StepMessage::IntraSelected ) })
+                    .map(Element::from)
+                    .collect()
+            )
+            .spacing(10)
+        ].padding(20).spacing(10);
+        let question2 = column![
+            text("Fault selected:").size(20),
+            column(fault.iter().cloned()
+                    .map(|c| { checkbox(c, true, StepMessage::IntraSelected ) })
+                    .map(Element::from)
+                    .collect()
+            )
+            .spacing(10)
+        ].padding(20).spacing(10);
+        let question3 = column![
+            text("Number of faults introduced:").size(20),
+            column(num.iter().cloned()
+                    .map(|c| { checkbox(format!("{}", c), true, StepMessage::IntraSelected ) })
+                    .map(Element::from)
+                    .collect()
+            )
+            .spacing(10)
+        ].padding(20).spacing(10);
+        Self::container("Summary of your choices")
+            .push(question)
+            .push(question2)
+            .push(question3)
+            .push("Please click Next to run the simulation", )
     }
     /*fn image(width: u16) -> Column<'a, StepMessage> {
         Self::container("Image")
