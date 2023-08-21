@@ -4,8 +4,6 @@ use iced::{alignment, Application, Color, executor, Theme, window};
 use iced::theme;
 use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, scrollable};
 use iced::{Element, Length, Settings, Command};
-use crate::network::neuron::lif::Lif;
-use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::FaultType;
 use crate::resilience::simulation::UserSelection;
@@ -17,7 +15,6 @@ pub fn launch() -> iced::Result {
 pub struct Tour {
     steps: Steps,
     debug: bool,
-    count: usize
 }
 
 impl Tour {
@@ -64,7 +61,6 @@ impl Application for Tour {
             Tour {
                 steps: Steps::new(),
                 debug: false,
-                count: 0
             },
             Command::none()
         )
@@ -82,8 +78,7 @@ impl Application for Tour {
             },
             Message::NextPressed => {
                 self.steps.advance();
-                if self.steps.is_last() && self.count == 0 {
-                    self.count += 1;
+                if self.steps.is_choice() {
                     let user_selection = self.create_selection();
                     let s = &mut self.steps.steps[4];
                     match s {
@@ -213,8 +208,12 @@ impl Steps {
         self.current == self.steps.len() - 1
     }
 
-    fn is_last(&self) -> bool {
-        self.current == self.steps.len() - 2
+    fn is_choice(&self) -> bool {
+        match self.steps[self.current] {
+            Step::Choices { .. } => return true,
+            _ => return false
+        }
+        //self.current == self.steps.len() - 2
     }
 
     fn can_continue(&self) -> bool {
