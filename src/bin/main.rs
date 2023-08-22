@@ -9,9 +9,8 @@ use group02::resilience::gui;
 
 fn main() {
 
-    network_setup_from_file();
+    //network_setup_from_file();
 
-    /*
     let _ = gui::launch();
 
     /* Building of a network with an input layer of 784 neurons, an hidden layer of 128 neurons and an output layer of 10 neurons */
@@ -63,7 +62,6 @@ fn main() {
     // Writing the results to output file
     write_to_output_file("./output.txt", vec_max);
 
-    */
 }
 
 fn get_neurons(num_neurons: usize) -> Vec<Lif> {
