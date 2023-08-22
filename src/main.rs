@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
-use group02::network::config::SNNBuilder;
+use group02::network::builder::SNNBuilder;
 use group02::network::config::network_setup_from_file;
 use group02::network::neuron::lif::Lif;
 use group02::resilience::components::{ComponentCategory, ComponentType};
@@ -65,8 +65,10 @@ fn main() {
     write_to_output_file("./output.txt", vec_max);
 */
 
+/*
+
     // Possible idea for the GUI implementation
-    //******************************************************************
+    // ******************************************************************
 
     while !gui::is_gui_closed() {
     
@@ -85,7 +87,8 @@ fn main() {
         // Pass the results to the GUI for visualization
         gui::visualize_results(results);
     }
-    //******************************************************************
+    // ******************************************************************
+*/
 
 }
 

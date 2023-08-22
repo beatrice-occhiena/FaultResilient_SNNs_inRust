@@ -1,5 +1,5 @@
 use std::vec;
-use group02::network::config::SNNBuilder;
+use group02::network::builder::SNNBuilder;
 use group02::network::neuron::lif::Lif;
 
 #[test]

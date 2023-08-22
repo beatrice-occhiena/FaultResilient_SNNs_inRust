@@ -1,16 +1,17 @@
-use std::sync::{Arc, Mutex};
-use crate::network::layer::Layer;
-use crate::network::neuron::neuron::Neuron;
-use crate::network::snn::SNN;
-
 extern crate toml;
 use std::fs::File;
 use std::io::Read;
 
+// NetworkSetup and Parsing from Config File
+// -----------------------------------------
+// This file defines the `NetworkSetup` struct and functions for parsing network configuration from a TOML file.
+// - `NetworkSetup` struct holds parsed network configuration parameters.
+// - `network_setup_from_file` reads and parses the TOML config file and returns a `NetworkSetup` object.
+
 #[derive(Debug)]
 pub struct NetworkSetup {
-    pub input_layer: usize,
-    pub hidden_layers: Vec<usize>,
+    pub input_length: usize,
+    pub hidden_layers_lengths: Vec<usize>,
     pub output_length: usize,
     pub extra_weights: Vec<String>,
     pub intra_weights: Vec<String>,
@@ -25,15 +26,15 @@ pub struct NetworkSetup {
 }
 
 impl NetworkSetup {
-    fn new(input_layer: usize, hidden_layers: Vec<usize>, output_length: usize, extra_weights: Vec<String>, intra_weights: Vec<String>, resting_potential: f64, reset_potential: f64, threshold: f64, beta: f64, tau: f64, spike_length: usize, batch_size: usize, input_spike_train: String) -> Self{
-        NetworkSetup {input_layer, hidden_layers, output_length, extra_weights, intra_weights, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train}
+    fn new(input_length: usize, hidden_layers_lengths: Vec<usize>, output_length: usize, extra_weights: Vec<String>, intra_weights: Vec<String>, resting_potential: f64, reset_potential: f64, threshold: f64, beta: f64, tau: f64, spike_length: usize, batch_size: usize, input_spike_train: String) -> Self{
+        NetworkSetup {input_length, hidden_layers_lengths, output_length, extra_weights, intra_weights, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train}
     }
 }
 
 pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
 
     // Read the configuration file
-    let mut config_file = File::open("src/network/config.toml").expect("Failed to open config file");
+    let mut config_file = File::open("src/config.toml").expect("Failed to open config file");
     let mut config_toml = String::new();
     config_file.read_to_string(&mut config_toml).expect("Failed to read config file");
 
@@ -49,7 +50,7 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
 
     // NETWORK DIMENSIONS
     let input_length = config["input_layer"]["input_length"].as_integer().unwrap() as usize;
-    let hidden_layers_length = config["hidden_layers"]["neurons"]
+    let hidden_layers_lengths = config["hidden_layers"]["neurons"]
         .as_array()
         .unwrap()
         .iter()
@@ -99,13 +100,8 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     let batch_size = config["input_spike_train"]["batch_size"].as_integer().unwrap() as usize;
     let input_spike_train = config["input_spike_train"]["filename"].to_string();
 
-    // Use the parameters to build your network and perform operations
-    let input_layer = input_length;
-    let mut hidden_layers = hidden_layers_length;
-    hidden_layers.push(output_length);
-/*
-    println!("Input Length: {}", input_layer);
-    println!("Hidden Layers: {:?}", hidden_layers);
+    println!("Input Length: {}", input_length);
+    println!("Hidden Layers: {:?}", hidden_layers_lengths);
     println!("Output Length: {}", output_length);
     println!("Extra Weights: {:?}", extra_weights);
     println!("Intra Weights: {:?}", intra_weights);
@@ -117,143 +113,8 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     println!("Spike Length: {}", spike_length);
     println!("Batch Size: {}", batch_size);
     println!("Input Spike Train: {}", input_spike_train);
-*/
-     Ok(NetworkSetup::new(input_layer.clone(), hidden_layers.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone()))
+
+     Ok(NetworkSetup::new(input_length.clone(), hidden_layers_lengths.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone()))
 
     // Now you can use the extracted parameters to build your SNN and perform operations as needed.
-}
-
-/**
-    This module allows to create a complex object (the network) providing an interface
-    to specify all the parameters that describe it. The user can specify:
-    - Layers
-    - Neurons (with the relative parameters) of each layer
-    - Extra-weights and intra-weights
- **/
-
-#[derive(Clone)]
-pub struct ParametersBuilder<N: Neuron> { //struct that contains all the parameters describing the network
-    input_length: usize,                // dimension of the network input layer
-    neurons: Vec<Vec<N>>,               // neurons in each layer
-    extra_weights: Vec<Vec<Vec<f64>>>,  // weights of the connections between each neuron and the neurons in the previous layer
-    intra_weights: Vec<Vec<Vec<f64>>>,  // weights of the connections between each neuron and the neurons in the same layer
-    num_layers: usize,                  // number of layers
-}
-
-impl<N: Neuron + Clone> ParametersBuilder<N> {
-    // Getters for builder parameters
-    pub fn get_neurons(&self) -> Vec<Vec<N>> {
-        self.neurons.clone()
-    }
-    pub fn get_extra_weights(&self) -> Vec<Vec<Vec<f64>>> {
-        self.extra_weights.clone()
-    }
-    pub fn get_intra_weights(&self) -> Vec<Vec<Vec<f64>>> {
-        self.intra_weights.clone()
-    }
-}
-
-#[derive(Clone)]
-pub struct SNNBuilder<N: Neuron> {
-    parameters: ParametersBuilder<N>
-}
-
-impl<N: Neuron + Clone + Send> SNNBuilder<N> {
-    pub fn new(input_length: usize) -> Self {
-        SNNBuilder {
-            parameters: ParametersBuilder {
-                input_length,
-                neurons: Vec::new(),
-                extra_weights: Vec::new(),
-                intra_weights: Vec::new(),
-                num_layers: 0
-            }
-        }
-    }
-
-    pub fn get_parameters(&self) -> ParametersBuilder<N> {
-        self.parameters.clone()
-    }
-
-    fn check_intra_weights(&self, intra_weights: &Vec<Vec<f64>>, neurons_len: usize) {
-        if neurons_len != intra_weights.len() {
-            panic!("Error: The number of neurons should be equal to the number of rows of the intra_weights matrix");
-        }
-        for row in intra_weights {
-            if row.len() != neurons_len {
-                panic!("Error: The number of neurons should be equal to the number of columns of the intra_weights matrix");
-            }
-            for w in row {
-                if *w > 0.0 {
-                    panic!("Error: Intra weights should be negative");
-                }
-            }
-        }
-    }
-
-    fn check_extra_weights(&self, extra_weights: &Vec<Vec<f64>>, neurons_len: usize) {
-        if neurons_len != extra_weights.len() {
-            panic!("Error: The number of neurons should be equal to the number of rows of the extra_weights matrix");
-        }
-        for row in extra_weights {
-            if self.parameters.num_layers == 0 {
-                if self.parameters.input_length != row.len() {
-                    panic!("Error: The number of columns of the extra_weights matrix should be equal to the dimension of the input layer if no layer exists")
-                }
-            }
-            else {
-                if row.len() != self.parameters.neurons[self.parameters.num_layers - 1].len() {
-                    panic!("Error: The number of neurons in the previous layer should be equal to the number of columns of the extra_weights matrix");
-                }
-            }
-            /*
-            for w in row {
-                if *w < 0.0 {
-                    panic!("Error: Extra weights should be positive");
-                }
-            }
-             */
-        }
-    }
-
-    /**
-        This method receives all the data for building a layer (neurons and intra and extra layer weights)
-        and checks its consistency (at run-time)
-     **/
-    pub fn add_layer(self, neurons: Vec<N>, extra_weights: Vec<Vec<f64>>, intra_weights: Vec<Vec<f64>>) -> Self{
-        // intra weights consistency check
-        self.check_intra_weights(&intra_weights, neurons.len());
-        // extra weights consistency check
-        self.check_extra_weights(&extra_weights, neurons.len());
-
-        // add parameters of the new layer
-        let mut parameters = self.parameters;
-        parameters.num_layers += 1;
-        parameters.neurons.push(neurons);
-        parameters.extra_weights.push(extra_weights);
-        parameters.intra_weights.push(intra_weights);
-
-        Self {
-            parameters
-        }
-    }
-
-    /**
-        This method builds each layer of the SNN from the information collected
-        by the SNNBuilder (neurons and weights)
-    */
-    pub fn build(self) -> SNN<N> {
-        if self.parameters.num_layers == 0 {
-            panic!("Error: The SNN must have at least one layer");
-        }
-
-        // Creation of each layer
-        let mut layers = Vec::new();
-        for (weights, neurons) in self.parameters.extra_weights.into_iter().zip(self.parameters.intra_weights).zip(self.parameters.neurons) {
-            let layer = Layer::new(neurons, weights.0, weights.1);
-            layers.push(Arc::new(Mutex::new(layer)));
-        }
-        SNN::new(layers)
-    }
-
 }

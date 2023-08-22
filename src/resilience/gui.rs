@@ -436,9 +436,9 @@ impl<'a> Step {
         let c;
         if result.is_ok() {
             let r = result.unwrap();
-            let question = column![text(format!("Input length: {}", r.input_layer)).size(20)];
-            let question2 = column![text(format!("Hidden layers: {:?}", r.hidden_layers)).size(20)];
-            let question3 = column![text(format!("Output length length: {}", r.output_length)).size(20)];
+            let question = column![text(format!("Input length: {}", r.input_length)).size(20)];
+            let question2 = column![text(format!("Hidden layers length: {:?}", r.hidden_layers_lengths)).size(20)];
+            let question3 = column![text(format!("Output layer lengths : {}", r.output_length)).size(20)];
             let question4 = column![text(format!("Extra weights: {:?}", r.extra_weights)).size(20)];
             let question5 = column![text(format!("Intra weights: {:?}", r.intra_weights)).size(20)];
             let question6 = column![text(format!("Resting potential: {}", r.resting_potential)).size(20)];
