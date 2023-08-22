@@ -88,6 +88,11 @@ impl Application for Tour {
                 }
                 Command::none()
             },
+            Message::RestartPressed => {
+                self.steps.restart();
+
+                Command::none()
+            },
             Message::StepMessage(step_msg) => {
                 self.steps.update(step_msg);
                 Command::none()
@@ -117,7 +122,13 @@ impl Application for Tour {
         }
 
         if steps.is_exit() {
-            controls = controls.push(button("Exit").on_press(Message::ExitMessage));
+            controls = controls.push(button("Restart").on_press(Message::RestartPressed));
+            controls = controls.push(button("Exit")
+                .on_press(Message::ExitMessage)
+                .style(theme::Button::Destructive),
+            );
+            
+
         }
 
         let content: Element<_> = column![
@@ -145,6 +156,7 @@ impl Application for Tour {
 pub enum Message {
     BackPressed,
     NextPressed,
+    RestartPressed,
     StepMessage(StepMessage),
     ExitMessage
 }
@@ -202,6 +214,10 @@ impl Steps {
 
     fn has_previous(&self) -> bool {
         self.current > 0
+    }
+
+    fn restart(&mut self) {
+        self.current = 0;
     }
 
     fn is_exit(&self) -> bool {
@@ -477,6 +493,7 @@ impl<'a> Step {
             .push(question3)
             .push("Please click Next to run the simulation", )
     }
+    
     /*fn image(width: u16) -> Column<'a, StepMessage> {
         Self::container("Image")
             .push("An image that tries to keep its aspect ratio.")
