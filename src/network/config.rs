@@ -1,12 +1,16 @@
 extern crate toml;
 use std::fs::File;
 use std::io::Read;
+use crate::network::neuron::neuron::Neuron;
+use crate::network::snn::SNN;
+use crate::network::builder::SNNBuilder;
 
 // NetworkSetup and Parsing from Config File
 // -----------------------------------------
-// This file defines the `NetworkSetup` struct and functions for parsing network configuration from a TOML file.
+// This module defines the `NetworkSetup` struct and functions for parsing network configuration from a TOML file.
 // - `NetworkSetup` struct holds parsed network configuration parameters.
 // - `network_setup_from_file` reads and parses the TOML config file and returns a `NetworkSetup` object.
+// It also converts the parsed parameters to a fully configured `SNN` object usinf the `SNNBuilder` module.
 
 #[derive(Debug)]
 pub struct NetworkSetup {
@@ -117,4 +121,18 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
      Ok(NetworkSetup::new(input_length.clone(), hidden_layers_lengths.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone()))
 
     // Now you can use the extracted parameters to build your SNN and perform operations as needed.
+}
+
+impl NetworkSetup { // Non ho ancora scelto sotto quale struct mettere questa funzione
+    pub fn create_snn(&self) -> SNN<N>{
+
+        // vorrei delegare a questa funzione la creazione di un SNN a partire da un NetworkSetup
+        // replicando qualcosa di simile a quello che ha fatto Matilde nel main ma tenendo conto di:
+        // - il neurone LIF ha dei parametri che vengono letti dal file di configurazione
+        // - hidden_layers_lengths vettore di grandeza variabile
+        // - extra_weights e intra_weights anch'essi vettori di grandeza variabile 
+        // - intra_weights può essere preimpostato a 0.0 o letto da file
+
+    }
+    
 }
