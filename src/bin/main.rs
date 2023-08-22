@@ -9,10 +9,12 @@ use group02::resilience::gui;
 
 fn main() {
 
-    //network_setup_from_file();
+    // Possible idea for the file configuration implementation (INCOMPLETE)
+    //******************************************************************
+    network_setup_from_file();
+    //******************************************************************
 
-    let _ = gui::launch();
-
+/*
     /* Building of a network with an input layer of 784 neurons, an hidden layer of 128 neurons and an output layer of 10 neurons */
     let input_length = 784;
     let hidden_length = 128;
@@ -61,6 +63,29 @@ fn main() {
     }
     // Writing the results to output file
     write_to_output_file("./output.txt", vec_max);
+*/
+
+    // Possible idea for the GUI implementation
+    //******************************************************************
+
+    while !gui::is_gui_closed() {
+    
+        // Launch the GUI to collect user input
+        // instead of   let _ = gui::launch();
+        let selected_fault = gui::get_user_fault_selection();
+
+        // OPTIONAL build the network based on user input from the GUI
+        // if the user has overwritten the configuration file
+        // (only if we decide to implement the configuration file on the GUI
+        // otherwise we can ignore this part)
+
+        // Process the input with faults injected based on user selection
+        // ... multithread ...
+
+        // Pass the results to the GUI for visualization
+        gui::visualize_results(results);
+    }
+    //******************************************************************
 
 }
 
