@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 iced = { version = "0.9.0", features = ["image", "debug"] }
 rand = "0.8"
+toml = "0.5.8"

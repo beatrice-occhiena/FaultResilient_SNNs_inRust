@@ -3,6 +3,99 @@ use crate::network::layer::Layer;
 use crate::network::neuron::neuron::Neuron;
 use crate::network::snn::SNN;
 
+extern crate toml;
+use std::fs::File;
+use std::io::Read;
+
+pub fn network_setup_from_file(){
+
+    // Read the configuration file
+    let mut config_file = File::open("./config.toml").expect("Failed to open config file");
+    let mut config_toml = String::new();
+    config_file.read_to_string(&mut config_toml).expect("Failed to read config file");
+
+    // Parse the TOML configuration
+    let config: toml::Value = toml::from_str(&config_toml).expect("Failed to parse TOML config");
+
+    // Access parameters
+
+    // NETWORK DIMENSIONS
+    let input_length = config["input_layer"]["input_length"].as_integer().unwrap() as usize;
+    let hidden_layers_length = config["hidden_layers"]["neurons"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n.as_integer().unwrap() as usize)
+        .collect::<Vec<usize>>();
+    let output_length = config["output_layer"]["neurons"].as_integer().unwrap() as usize;
+
+    // WEIGHT FILES
+    let weight_files = config["weight_files"].as_table().unwrap();
+    let extra_weights = weight_files["extra_weights"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|w| w.as_str().unwrap())
+        .collect::<Vec<&str>>();
+    // optional intra_weights
+    let intra_weights;
+    if weight_files.contains_key("intra_weights") {
+        intra_weights = config["weight_files"]["intra_weights"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|w| w.as_str().unwrap())
+            .collect::<Vec<&str>>();
+    }else{
+        intra_weights = Vec::new();
+    }
+
+    // NEURON PARAMETERS
+    let lif_params = config["LIF_neuron_parameters"].as_table().unwrap();
+    let resting_potential = lif_params["resting_potential"].as_float().unwrap() as f64;
+    let reset_potential = lif_params["reset_potential"].as_float().unwrap() as f64;
+    let threshold = lif_params["threshold"].as_float().unwrap() as f64;
+    let beta;
+    let tau;
+    if lif_params.contains_key("beta"){
+        beta = lif_params["beta"].as_float().unwrap() as f64;
+        tau = (-1.0 / beta.ln()) as f64;
+    }
+    else {
+        tau = lif_params["tau"].as_float().unwrap() as f64;
+        beta = (-1.0 / tau.ln()) as f64;
+    }
+
+    // INPUT SPIKES PARAMETERS
+    let spike_length = config["input_spike_train"]["spike_length"].as_integer().unwrap() as usize;
+    let batch_size = config["input_spike_train"]["batch_size"].as_integer().unwrap() as usize;
+    let input_spike_train = config["input_spike_train"]["filename"].as_str().unwrap();
+
+    // Use the parameters to build your network and perform operations
+    let input_layer = input_length;
+    let mut hidden_layers = hidden_layers_length;
+    hidden_layers.push(output_length);
+
+    println!("Input Length: {}", input_layer);
+    println!("Hidden Layers: {:?}", hidden_layers);
+    println!("Output Length: {}", output_length);
+    println!("Extra Weights: {:?}", extra_weights);
+    println!("Intra Weights: {:?}", intra_weights);
+    println!("Resting Potential: {}", resting_potential);
+    println!("Reset Potential: {}", reset_potential);
+    println!("Threshold: {}", threshold);
+    println!("Beta: {}", beta);
+    println!("Tau: {}", tau);
+    println!("Spike Length: {}", spike_length);
+    println!("Batch Size: {}", batch_size);
+    println!("Input Spike Train: {}", input_spike_train);
+
+    // Now you can use the extracted parameters to build your SNN and perform operations as needed.
+}
+
+
+
+
 /**
     This module allows to create a complex object (the network) providing an interface
     to specify all the parameters that describe it. The user can specify:
