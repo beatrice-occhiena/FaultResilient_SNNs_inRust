@@ -8,6 +8,7 @@ from runParameters import *
 
 data_path='./data/mnist'
 outputFilename = "output.txt"
+targetsFile = "targets.txt"
 
 train_loader, test_loader = loadDataset(data_path, batch_size)
 
@@ -29,6 +30,9 @@ with open('inputSpikes.txt', 'w') as outfile:
         	np.savetxt(outfile, data_slice, fmt='%d')
 		# Writing out a break to indicate different slices
         	outfile.write('# New slice\n')
+
+with open(targetsFile, 'w') as outfile:
+	np.savetxt(outfile, test_targets, fmt='%d')
 
 # Lancio il programma rust con i parametri e questi input 
 import subprocess as sp
