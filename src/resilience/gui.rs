@@ -4,6 +4,7 @@ use iced::{alignment, Application, Color, executor, Theme, window};
 use iced::theme;
 use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, scrollable};
 use iced::{Element, Length, Settings, Command};
+use crate::network::config::network_setup_from_file;
 use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::FaultType;
 use crate::resilience::simulation::UserSelection;
@@ -73,7 +74,12 @@ impl Application for Tour {
     fn update(&mut self, event: Message) -> Command<Message> {
         match event {
             Message::BackPressed => {
-                self.steps.go_back();
+                if self.steps.is_network() {
+                    self.steps.update_step();
+                }
+                else {
+                    self.steps.go_back();
+                }
                 Command::none()
             },
             Message::NextPressed => {
@@ -108,10 +114,17 @@ impl Application for Tour {
 
         let mut controls = row![];
 
-        if steps.has_previous() {
+        if steps.has_previous() && !steps.is_network()  {
             controls = controls.push(button("Back")
                     .on_press(Message::BackPressed)
                     .style(theme::Button::Secondary),
+            );
+        }
+
+        if steps.is_network() {
+            controls = controls.push(button("Update")
+                                         .on_press(Message::BackPressed)
+                                         .style(theme::Button::Secondary),
             );
         }
 
@@ -127,8 +140,6 @@ impl Application for Tour {
                 .on_press(Message::ExitMessage)
                 .style(theme::Button::Destructive),
             );
-            
-
         }
 
         let content: Element<_> = column![
@@ -172,6 +183,7 @@ impl Steps {
         Steps {
             steps: vec![
                 Step::Welcome,
+                Step::Network,
                 Step::Radio {
                     intra: false, extra: false,
                     reset: false, resting: false, threshold: false, vmem: false, tau: false, ts: false,
@@ -220,6 +232,10 @@ impl Steps {
         self.current = 0;
     }
 
+    fn update_step(&mut self) {
+        self.current = self.current;
+    }
+
     fn is_exit(&self) -> bool {
         self.current == self.steps.len() - 1
     }
@@ -229,7 +245,13 @@ impl Steps {
             Step::Choices { .. } => return true,
             _ => return false
         }
-        //self.current == self.steps.len() - 2
+    }
+
+    fn is_network(&self) -> bool {
+        match self.steps[self.current] {
+            Step::Network { .. } => return true,
+            _ => return false
+        }
     }
 
     fn can_continue(&self) -> bool {
@@ -245,6 +267,7 @@ impl Steps {
 #[derive(Debug, Clone)]
 enum Step {
     Welcome,
+    Network,
     Fault { selection: Option<FaultType>, },
     Radio {
         intra: bool, extra: bool,
@@ -354,6 +377,7 @@ impl<'a> Step {
     fn title(&self) -> &str {
         match self {
             Step::Welcome => "Welcome",
+            Step::Network => "Network",
             Step::Radio { .. } => "Components",
             Step::Fault {..} => "Fault",
             //Step::Image { .. } => "Image",
@@ -366,6 +390,7 @@ impl<'a> Step {
     fn can_continue(&self) -> bool {
         match self {
             Step::Welcome => true,
+            Step::Network => network_setup_from_file().is_ok(),
             Step::Radio { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
                 *intra != false || *extra != false || *reset != false || *resting != false || *threshold != false || *vmem != false || *tau != false || *ts != false || *adder != false || *multiplier != false || *comparator != false
             },
@@ -382,6 +407,7 @@ impl<'a> Step {
     fn view(&self, _debug: bool) -> Element<StepMessage> {
         match self {
             Step::Welcome => Self::welcome(),
+            Step::Network => Self::network(),
             Step::Radio {intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator }
                 => Self::radio(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *adder, *multiplier, *comparator),
             Step::Fault { selection} => Self::faults(*selection),
@@ -403,6 +429,49 @@ impl<'a> Step {
         Self::container("SNN resilience analysis tool")
             .push("Welcome to our simple user interface for studying the resilience of a Spiking Neural Network", )
             .push("Please click Next to select a configuration", )
+    }
+
+    fn network() -> Column<'a, StepMessage> { //OK
+        let result = network_setup_from_file();
+        let c;
+        if result.is_ok() {
+            let r = result.unwrap();
+            let question = column![text(format!("Input length: {}", r.input_layer)).size(20)];
+            let question2 = column![text(format!("Hidden layers: {:?}", r.hidden_layers)).size(20)];
+            let question3 = column![text(format!("Output length length: {}", r.output_length)).size(20)];
+            let question4 = column![text(format!("Extra weights: {:?}", r.extra_weights)).size(20)];
+            let question5 = column![text(format!("Intra weights: {:?}", r.intra_weights)).size(20)];
+            let question6 = column![text(format!("Resting potential: {}", r.resting_potential)).size(20)];
+            let question7 = column![text(format!("Reset potential: {}", r.reset_potential)).size(20)];
+            let question8 = column![text(format!("Threshold: {}", r.threshold)).size(20)];
+            let question9 = column![text(format!("Beta: {}", r.beta)).size(20)];
+            let question10 = column![text(format!("Tau: {}", r.tau)).size(20)];
+            let question11 = column![text(format!("Spike length: {}", r.spike_length)).size(20)];
+            let question12 = column![text(format!("Batch size: {}", r.batch_size)).size(20)];
+            let question13 = column![text(format!("Input Spike Train: {}", r.input_spike_train)).size(20)];
+            c = Self::container("Network configuration")
+                .push(question)
+                .push(question2)
+                .push(question3)
+                .push(question4)
+                .push(question5)
+                .push(question6)
+                .push(question7)
+                .push(question8)
+                .push(question9)
+                .push(question10)
+                .push(question11)
+                .push(question12)
+                .push(question13)
+                .push("", )
+                .push("Please click Next to select a configuration or click Update if you have updated the file", );
+        }
+        else {
+            c = Self::container("Network configuration")
+                .push("Please complete the network configuration in file config.toml")
+                .push("Please click Update when you have completed the file", );
+        }
+        c
     }
 
     fn faults(selection: Option<FaultType>) -> Column<'a, StepMessage> { //OK

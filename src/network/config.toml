@@ -10,7 +10,7 @@
 # NETWORK DIMENSIONS
 
 [input_layer]
-input_length = 784                  
+input_length = 784
 
 # For each hidden layer, specify the number of neurons in that layer
 # hidden_layers is a variable length array, so you can add as many hidden layers as you want
