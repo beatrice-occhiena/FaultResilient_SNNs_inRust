@@ -32,7 +32,7 @@ neurons = 10
 # - the network will be initialized with weights of 0.0 (no intra-layer contributions)
 
 [weight_files]
-extra_weights = ["./parameters/weightsFile1.txt", "./parameters/weightsFile2.txt", "./parameters/weightsFile3.txt", "./parameters/weightsFile4.txt"]
+extra_weights = ["simulation/parameters/weightsFile1.txt", "simulation/parameters/weightsFile2.txt"]
 # intra_weights = []
 
 
@@ -59,4 +59,4 @@ beta = 0.9375
 [input_spike_train]
 spike_length = 100                  # Length of the spike train
 batch_size = 256                    # Number of images in each batch
-filename = "./inputSpikes.txt"      # File containing the input spike train
+filename = "simulation/inputSpikes.txt"      # File containing the input spike train

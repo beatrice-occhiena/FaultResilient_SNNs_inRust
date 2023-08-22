@@ -10,7 +10,7 @@ use std::io::Read;
 pub fn network_setup_from_file(){
 
     // Read the configuration file
-    let mut config_file = File::open("./config.toml").expect("Failed to open config file");
+    let mut config_file = File::open("src/network/config.toml").expect("Failed to open config file");
     let mut config_toml = String::new();
     config_file.read_to_string(&mut config_toml).expect("Failed to read config file");
 
