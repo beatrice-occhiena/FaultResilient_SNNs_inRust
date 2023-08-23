@@ -245,3 +245,25 @@ pub fn get_targets(filename: &str, batch_size: usize) -> Vec<u8> {
     }
     targets
 }
+
+pub fn compute_accuracy(vec_max: Vec<u8>, targets: &Vec<u8>) -> f64 {
+    let matching = vec_max.iter().zip(targets).filter(|&(a, b)| a == b).count();
+    ((matching * 100) / targets.len()) as f64
+}
+
+pub fn compute_max_output_spike(output_spikes: Vec<Vec<u8>>) -> u8 {
+    let mut vec_sum = Vec::new();
+    for o in output_spikes {
+        vec_sum.push(o.iter().sum());
+    }
+    let mut max = 0;
+    let mut max_j = 0;
+    for (j, v) in vec_sum.iter().enumerate() {
+        if *v > max {
+            max = *v;
+            max_j = j;
+        }
+    }
+    println!("max -> {}", max_j);
+    max_j as u8
+}

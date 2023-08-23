@@ -9,7 +9,7 @@ use crate::network::event::spike_event::SpikeEvent;
 use crate::resilience::fault_models::InjectedFault;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SNN < N: Neuron + Clone + Send + 'static >
 {
   layers:  Vec<Arc<Mutex<Layer<N>>>>,

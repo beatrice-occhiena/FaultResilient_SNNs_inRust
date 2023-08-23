@@ -4,7 +4,9 @@ use iced::{alignment, Application, Color, executor, Theme, window};
 use iced::theme;
 use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, scrollable};
 use iced::{Element, Length, Settings, Command};
-use crate::network::config::network_setup_from_file;
+use crate::network::config::{build_network_from_setup, compute_accuracy, compute_max_output_spike, network_setup_from_file};
+use crate::network::neuron::lif::Lif;
+use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::FaultType;
 use crate::resilience::simulation::UserSelection;
@@ -86,9 +88,31 @@ impl Application for Tour {
                 self.steps.advance();
                 if self.steps.is_choice() {
                     let user_selection = self.create_selection();
-                    let s = &mut self.steps.steps[5];
+                    let s = &mut self.steps.steps[6]; //choice
                     match s {
                         Step::Choices { ref mut c } => { *c = user_selection }
+                        _ => {}
+                    };
+                }
+                if self.steps.is_accuracy() {
+                    let n = network_setup_from_file();
+                    let (snn_net, input_spike_train, target) = build_network_from_setup(n.unwrap());
+                    let s = &mut self.steps.steps[2];
+                    match s {
+                        Step::Accuracy { ref mut snn, ref mut input_spike_trains, ref mut targets , ref mut a}
+                            => { *snn = snn_net;
+                                *input_spike_trains = input_spike_train;
+                                *targets = target;
+                                let mut vec_max = Vec::new();
+                                for input_spikes in (*input_spike_trains).iter() {
+                                    let output_spikes = (*snn).process_input(&input_spikes, None);
+                                    let max = compute_max_output_spike(output_spikes);
+                                    vec_max.push(max);
+                                 }
+                                 // Writing the results to output file
+                                 let acc = compute_accuracy(vec_max, &(*targets));
+                                *a = acc;
+                        }
                         _ => {}
                     };
                 }
@@ -184,6 +208,12 @@ impl Steps {
             steps: vec![
                 Step::Welcome,
                 Step::Network,
+                Step::Accuracy  {
+                    snn: SNN::new(Vec::new()),
+                    input_spike_trains: Vec::new(),
+                    targets: Vec::new(),
+                    a: 0.0
+                },
                 Step::Radio {
                     intra: false, extra: false,
                     reset: false, resting: false, threshold: false, vmem: false, tau: false, ts: false,
@@ -254,6 +284,13 @@ impl Steps {
         }
     }
 
+    fn is_accuracy(&self) -> bool {
+        match self.steps[self.current] {
+            Step::Accuracy { .. } => return true,
+            _ => return false
+        }
+    }
+
     fn can_continue(&self) -> bool {
         self.current + 1 < self.steps.len()
             && self.steps[self.current].can_continue()
@@ -268,6 +305,12 @@ impl Steps {
 enum Step {
     Welcome,
     Network,
+    Accuracy {
+        snn: SNN<Lif>,
+        input_spike_trains: Vec<Vec<Vec<u8>>>,
+        targets: Vec<u8>,
+        a: f64
+    },
     Fault { selection: Option<FaultType>, },
     Radio {
         intra: bool, extra: bool,
@@ -378,6 +421,7 @@ impl<'a> Step {
         match self {
             Step::Welcome => "Welcome",
             Step::Network => "Network",
+            Step::Accuracy { .. } => "Accuracy",
             Step::Radio { .. } => "Components",
             Step::Fault {..} => "Fault",
             //Step::Image { .. } => "Image",
@@ -391,6 +435,7 @@ impl<'a> Step {
         match self {
             Step::Welcome => true,
             Step::Network => network_setup_from_file().is_ok(),
+            Step::Accuracy { .. } => true,
             Step::Radio { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
                 *intra != false || *extra != false || *reset != false || *resting != false || *threshold != false || *vmem != false || *tau != false || *ts != false || *adder != false || *multiplier != false || *comparator != false
             },
@@ -407,7 +452,8 @@ impl<'a> Step {
     fn view(&self, _debug: bool) -> Element<StepMessage> {
         match self {
             Step::Welcome => Self::welcome(),
-            Step::Network => Self::network(),
+            Step::Network{..} => Self::network(),
+            Step::Accuracy {snn : _, input_spike_trains: _, targets: _, a} => Self::accuracy(*a),
             Step::Radio {intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator }
                 => Self::radio(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *adder, *multiplier, *comparator),
             Step::Fault { selection} => Self::faults(*selection),
@@ -464,7 +510,8 @@ impl<'a> Step {
                 .push(question12)
                 .push(question13)
                 .push("", )
-                .push("Please click Next to select a configuration or click Update if you have updated the file", );
+                .push("Please click Next to build your network or click Update if you have updated the file", )
+                .push("The building of your network requires at least 1 minute");
         }
         else {
             c = Self::container("Network configuration")
@@ -472,6 +519,15 @@ impl<'a> Step {
                 .push("Please click Update when you have completed the file", );
         }
         c
+    }
+
+    fn accuracy(a: f64) -> Column<'a, StepMessage> { //OK
+        let question = column![text(format!("The accuracy without faults is: {} %", a)).size(20)];
+        Self::container("Network built")
+            .push("Your network has been built", )
+            .push(question)
+            .push("Please click Next to select a configuration", )
+
     }
 
     fn faults(selection: Option<FaultType>) -> Column<'a, StepMessage> { //OK

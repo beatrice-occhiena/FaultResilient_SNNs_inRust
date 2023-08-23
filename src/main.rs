@@ -1,11 +1,11 @@
-use group02::network::config::{build_network_from_setup, network_setup_from_file};
+use group02::network::config::{build_network_from_setup, compute_accuracy, compute_max_output_spike, network_setup_from_file};
 use group02::resilience::gui;
 
 fn main() {
 
     // Possible idea for the file configuration implementation (INCOMPLETE)
     //******************************************************************
-    //let _ = gui::launch();
+    let _ = gui::launch();
 
     let n = network_setup_from_file();
     let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
@@ -19,7 +19,7 @@ fn main() {
     }
 
     // Writing the results to output file
-    let acc = compute_accuracy(vec_max, targets);
+    let acc = compute_accuracy(vec_max, &targets);
     println!("Accuracy = {}%", acc);
 
     // Possible idea for the GUI implementation
@@ -40,26 +40,4 @@ fn main() {
     // Pass the results to the GUI for visualization
     //gui::visualize_results(results);
     // }
-}
-
-pub fn compute_accuracy(vec_max: Vec<u8>, targets: Vec<u8>) -> f64 {
-    let matching = vec_max.iter().zip(&targets).filter(|&(a, b)| a == b).count();
-    ((matching * 100) / targets.len()) as f64
-}
-
-pub fn compute_max_output_spike(output_spikes: Vec<Vec<u8>>) -> u8 {
-    let mut vec_sum = Vec::new();
-    for o in output_spikes {
-        vec_sum.push(o.iter().sum());
-    }
-    let mut max = 0;
-    let mut max_j = 0;
-    for (j, v) in vec_sum.iter().enumerate() {
-        if *v > max {
-            max = *v;
-            max_j = j;
-        }
-    }
-    println!("max -> {}", max_j);
-    max_j as u8
 }
