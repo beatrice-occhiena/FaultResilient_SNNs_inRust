@@ -60,3 +60,7 @@ beta = 0.9375
 spike_length = 100                  # Length of the spike train
 batch_size = 256                    # Number of images in each batch
 filename = "simulation/inputSpikes.txt"      # File containing the input spike train
+
+# TARGETS FILE TO COMPUTE ACCURACY
+[accuracy]
+target_file = "simulation/targets.txt"

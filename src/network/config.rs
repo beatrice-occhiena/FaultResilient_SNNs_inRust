@@ -1,11 +1,9 @@
-use std::sync::{Arc, Mutex};
-use crate::network::layer::Layer;
-use crate::network::neuron::neuron::Neuron;
 use crate::network::snn::SNN;
 
 extern crate toml;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
+use crate::network::builder::SNNBuilder;
 use crate::network::neuron::lif::Lif;
 
 // NetworkSetup and Parsing from Config File
@@ -30,19 +28,20 @@ pub struct NetworkSetup {
     pub tau: f64,
     pub spike_length: usize,
     pub batch_size: usize,
-    pub input_spike_train: String
+    pub input_spike_train: String,
+    pub target_file: String
 }
 
 impl NetworkSetup {
-    fn new(input_layer: usize, hidden_layers: Vec<usize>, output_length: usize, extra_weights: Vec<String>, intra_weights: Vec<String>, resting_potential: f64, reset_potential: f64, threshold: f64, beta: f64, tau: f64, spike_length: usize, batch_size: usize, input_spike_train: String) -> Self{
-        NetworkSetup {input_layer, hidden_layers, output_length, extra_weights, intra_weights, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train}
+    fn new(input_layer: usize, hidden_layers: Vec<usize>, output_length: usize, extra_weights: Vec<String>, intra_weights: Vec<String>, resting_potential: f64, reset_potential: f64, threshold: f64, beta: f64, tau: f64, spike_length: usize, batch_size: usize, input_spike_train: String, target_file: String) -> Self{
+        NetworkSetup {input_layer, hidden_layers, output_length, extra_weights, intra_weights, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train, target_file}
     }
 }
 
 pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
 
     // Read the configuration file
-    let mut config_file = File::open("src/network/config.toml").expect("Failed to open config file");
+    let mut config_file = File::open("src/config.toml").expect("Failed to open config file");
     let mut config_toml = String::new();
     config_file.read_to_string(&mut config_toml).expect("Failed to read config file");
 
@@ -107,16 +106,19 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     let batch_size = config["input_spike_train"]["batch_size"].as_integer().unwrap() as usize;
     let input_spike_train = config["input_spike_train"]["filename"].to_string();
 
+    // TARGET FILE FOR ACCURACY
+    let target_file = config["accuracy"]["target_file"].to_string();
+
     // Use the parameters to build your network and perform operations
     let input_layer = input_length;
     let mut hidden_layers = hidden_layers_length;
     hidden_layers.push(output_length);
 
-     Ok(NetworkSetup::new(input_layer.clone(), hidden_layers.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone()))
+     Ok(NetworkSetup::new(input_layer.clone(), hidden_layers.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone(), target_file.clone()))
     // Now you can use the extracted parameters to build your SNN and perform operations as needed.
 }
 
-pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>) {
+pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>, Vec<u8>) {
     // Building neurons
     let mut vec_neurons = Vec::new();
     for l in n.hidden_layers.iter() {
@@ -150,7 +152,10 @@ pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>
     // Getting input spike trains from file
     let input_spike_train = get_input_spike_train(rem_first_and_last(n.input_spike_train.as_str()), n.input_layer, n.spike_length, n.batch_size);
 
-    (snn, input_spike_train)
+    // Getting targets from file
+    let targets = get_targets(rem_first_and_last(n.target_file.as_str()), n.batch_size);
+
+    (snn, input_spike_train, targets)
 }
 
 fn get_neurons(num_neurons: usize, reset_potential: f64, resting_potential: f64, threshold: f64, tau: f64) -> Vec<Lif> {
@@ -164,7 +169,6 @@ fn get_neurons(num_neurons: usize, reset_potential: f64, resting_potential: f64,
 
 fn get_extra_weights(filename: &str, input_length: usize, num_neurons: usize) -> Vec<Vec<f64>> {
     // Opening the file
-    println!("{} - {} - {}", filename, input_length, num_neurons);
     let f = File::open(filename).expect("Error: The weight file doesn't exist");
     // Initialize the matrix of weights to all zeros
     let mut extra_weights = vec![vec![0f64; input_length]; num_neurons];
@@ -227,4 +231,17 @@ pub fn rem_first_and_last(value: &str) -> &str {
     chars.next();
     chars.next_back();
     chars.as_str()
+}
+
+pub fn get_targets(filename: &str, batch_size: usize) -> Vec<u8> {
+    // Opening the file
+    let f = File::open(filename).expect("Error: The targets file doesn't exist");
+    // Initialize the matrix of weights to all zeros
+    let mut targets = vec![0u8; batch_size];
+    // Reading the file by lines
+    let reader = BufReader::new(f);
+    for (i,line) in reader.lines().enumerate() {
+        targets[i] = line.unwrap().parse::<u8>().expect("Cannot convert to u8");
+    }
+    targets
 }
