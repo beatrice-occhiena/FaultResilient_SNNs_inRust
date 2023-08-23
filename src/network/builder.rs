@@ -2,7 +2,6 @@ use std::sync::{Arc, Mutex};
 use crate::network::layer::Layer;
 use crate::network::neuron::neuron::Neuron;
 use crate::network::snn::SNN;
-use crate::network::config::NetworkSetup;
 
 // SNNBuilder and Building a Spiking Neural Network
 // ------------------------------------------------
