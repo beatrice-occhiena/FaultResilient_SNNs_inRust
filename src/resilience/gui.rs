@@ -25,6 +25,7 @@ impl Tour {
         let mut v = Vec::new();
         let mut fault = FaultType::StuckAt0;
         let mut num_faults= 0;
+        let mut input_spike_train = Vec::new();
         for i in 1..self.steps.steps.len() {
             match self.steps.steps.get(i).unwrap() {
                 Step::Radio { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator} => {
@@ -42,14 +43,17 @@ impl Tour {
                 },
                 Step::Fault {selection} => {
                     fault = selection.unwrap();
-                }
+                },
                 Step::TextInput {value} => {
                     num_faults = value.parse::<u64>().unwrap();
+                },
+                Step::Accuracy {input_spike_trains, ..} =>{
+                    input_spike_train = (*input_spike_trains).clone();
                 }
                 _ => {}
             }
         }
-        UserSelection::new(v, fault, num_faults,vec![vec![1,0,1],vec![0,0,1]])
+        UserSelection::new(v, fault, num_faults,input_spike_train)
     }
 }
 
@@ -109,7 +113,6 @@ impl Application for Tour {
                                     let max = compute_max_output_spike(output_spikes);
                                     vec_max.push(max);
                                  }
-                                 // Writing the results to output file
                                  let acc = compute_accuracy(vec_max, &(*targets));
                                 *a = acc;
                         }

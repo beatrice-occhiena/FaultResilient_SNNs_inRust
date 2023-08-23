@@ -211,15 +211,17 @@ fn get_input_spike_train(filename: &str, input_length: usize, spike_length: usiz
     let mut k = 0;
     for (i,line) in reader.lines().enumerate() {
         // Each line is a String -> I have to split it and convert to f64
-        if i==0 || line.as_ref().unwrap().eq("# New slice") {
-            k+=1;
-        }
-        else {
-            let lu8 = line.unwrap().chars().filter(|c| *c != ' ').map(|c|  {
-                c.to_digit(10).unwrap() as u8
-            }).collect::<Vec<u8>>();
-            for (j, w) in lu8.into_iter().enumerate() {
-                spike_trains[k-1][j][i-k-(k-1)*spike_length] = w;
+        if k < batch_size + 1 {
+            if i==0 || line.as_ref().unwrap().eq("# New slice") {
+                k+=1;
+            }
+            else {
+                let lu8 = line.unwrap().chars().filter(|c| *c != ' ').map(|c|  {
+                    c.to_digit(10).unwrap() as u8
+                }).collect::<Vec<u8>>();
+                for (j, w) in lu8.into_iter().enumerate() {
+                    spike_trains[k-1][j][i-k-(k-1)*spike_length] = w;
+                }
             }
         }
     }
@@ -241,7 +243,9 @@ pub fn get_targets(filename: &str, batch_size: usize) -> Vec<u8> {
     // Reading the file by lines
     let reader = BufReader::new(f);
     for (i,line) in reader.lines().enumerate() {
-        targets[i] = line.unwrap().parse::<u8>().expect("Cannot convert to u8");
+        if i < batch_size {
+            targets[i] = line.unwrap().parse::<u8>().expect("Cannot convert to u8");
+        }
     }
     targets
 }

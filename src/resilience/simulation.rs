@@ -1,5 +1,8 @@
 /* Defines the simulation logic to be used in the resilience analysis. */
+use std::thread;
+use std::thread::JoinHandle;
 use rand::Rng;
+use crate::network::config::{compute_accuracy, compute_max_output_spike};
 // Import random number generator
 use crate::network::neuron::neuron::Neuron;
 use crate::network::snn::SNN;
@@ -12,12 +15,12 @@ pub struct UserSelection {
     pub components: Vec<ComponentType>,
     pub fault_type: FaultType,
     pub num_faults: u64,
-    pub input_sequence: Vec<Vec<u8>>,
+    pub input_sequence: Vec<Vec<Vec<u8>>>,
 }
 
 impl UserSelection {
     // Constructor
-    pub fn new(components: Vec<ComponentType>, fault_type: FaultType, num_faults: u64, input_sequence: Vec<Vec<u8>>) -> Self {
+    pub fn new(components: Vec<ComponentType>, fault_type: FaultType, num_faults: u64, input_sequence: Vec<Vec<Vec<u8>>>) -> Self {
         UserSelection {
             components,
             fault_type,
@@ -29,55 +32,71 @@ impl UserSelection {
 
 impl < N: Neuron + Clone + Send + 'static > SNN < N >
 {
-    pub fn run_simulation(&mut self, user_selection: UserSelection) {
+    pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>) -> Vec<f64> {
 
-        // Input sequence
-        let input_spikes = user_selection.input_sequence;
-        let num_time_steps = input_spikes[0].len();
+        let mut thread_handles = Vec::<JoinHandle<f64>>::new();
+        let mut vec_acc = Vec::new();
 
         // For each fault to be injected
         for _ in 0..user_selection.num_faults {
+            let user_selection = user_selection.clone();
+            let snn = self.clone();
+            let targets = targets.clone();
+            let handle = thread::spawn(move || {
+                // Input sequence
+                let input_spikes = user_selection.input_sequence;
+                let num_time_steps = input_spikes.get(0).unwrap().get(0).unwrap().len();
 
-            // If the fault is a transient bit-flip fault
-            // -> Select a random time step from the input sequence
-            let mut time_step: Option<u64> = None;
-            if user_selection.fault_type == FaultType::TransientBitFlip
-            {
-                time_step = Some(rand::thread_rng().gen_range(0..num_time_steps) as u64);
-            }
+                let mut v = Vec::new();
 
-            // Select a random component from the list of components
-            let component_index = rand::thread_rng().gen_range(0..user_selection.components.len());
-            let component_type = user_selection.components[component_index];
+                // If the fault is a transient bit-flip fault
+                // -> Select a random time step from the input sequence
+                let mut time_step: Option<u64> = None;
+                if user_selection.fault_type == FaultType::TransientBitFlip {
+                    time_step = Some(rand::thread_rng().gen_range(0..num_time_steps) as u64);
+                }
 
-            // Identify the category of the component
-            let component_category = component_type.get_category();
+                // Select a random component from the list of components
+                let component_index = rand::thread_rng().gen_range(0..user_selection.components.len());
+                let component_type = user_selection.components[component_index];
 
-            // Select a random layer from the list of layers
-            let layer_index = rand::thread_rng().gen_range(0..self.get_num_layers());
+                // Identify the category of the component
+                let component_category = component_type.get_category();
 
-            // Select a random index of the component from the list of components of the given type in the layer
-            let layer = self.get_layer(layer_index);
-            let num_components = layer.lock().unwrap().get_num_components_from_type(&component_type);
-            let component_index = rand::thread_rng().gen_range(0..num_components);
+                // Select a random layer from the list of layers
+                let layer_index = rand::thread_rng().gen_range(0..snn.get_num_layers());
 
-            // Select a random bit index for the component (not for threshold comparators)
-            let mut bit_index: Option<usize> = None;
-            if component_type != ComponentType::ThresholdComparator
-            {
-                bit_index = Some(rand::thread_rng().gen_range(0..64));
-            }
+                // Select a random index of the component from the list of components of the given type in the layer
+                let layer = snn.get_layer(layer_index);
+                let num_components = layer.lock().unwrap().get_num_components_from_type(&component_type);
+                let component_index = rand::thread_rng().gen_range(0..num_components);
 
-            // Create the injected fault object
-            let injected_fault = InjectedFault::new(user_selection.fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
+                // Select a random bit index for the component (not for threshold comparators)
+                let mut bit_index: Option<usize> = None;
+                if component_type != ComponentType::ThresholdComparator {
+                    bit_index = Some(rand::thread_rng().gen_range(0..64));
+                }
 
-            // Process the input sequence with the injected fault
-            self.process_input(&input_spikes, Some(injected_fault));
-
-            // #to_do : ANALYSIS
-            // #to_do : MULTI-THREADING for processing multiple faults in parallel ???
+                // Create the injected fault object
+                let injected_fault = InjectedFault::new(user_selection.fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
+                for input_spike_train in input_spikes {
+                    // Process the input sequence with the injected fault
+                    let output_spikes = snn.process_input(&input_spike_train, Some(injected_fault));
+                    // Compute accuracy
+                    let max = compute_max_output_spike(output_spikes);
+                    v.push(max);
+                }
+                compute_accuracy(v, &targets)
+            });
+            thread_handles.push(handle);
         }
 
+        // wait for the threads to finish
+        for handle in thread_handles {
+            vec_acc.push(handle.join().unwrap());
+        }
+
+        vec_acc
     }
 
 }

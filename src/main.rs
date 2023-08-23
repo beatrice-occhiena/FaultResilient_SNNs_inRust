@@ -1,27 +1,34 @@
 use group02::network::config::{build_network_from_setup, compute_accuracy, compute_max_output_spike, network_setup_from_file};
+use group02::resilience::components::ComponentType;
+use group02::resilience::fault_models::FaultType;
 use group02::resilience::gui;
+use group02::resilience::simulation::UserSelection;
 
 fn main() {
 
     // Possible idea for the file configuration implementation (INCOMPLETE)
     //******************************************************************
-    let _ = gui::launch();
+    //let _ = gui::launch();
 
     let n = network_setup_from_file();
     let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
 
     // Processing the input
     let mut vec_max = Vec::new();
-    for input_spikes in input_spike_train {
+    for input_spikes in input_spike_train.iter() {
         let output_spikes = snn.process_input(&input_spikes, None);
         let max = compute_max_output_spike(output_spikes);
         vec_max.push(max);
     }
 
-    // Writing the results to output file
     let acc = compute_accuracy(vec_max, &targets);
     println!("Accuracy = {}%", acc);
 
+    let us = UserSelection::new(vec![ComponentType::ThresholdComparator, ComponentType::Extra], FaultType::StuckAt0, 4, input_spike_train);
+    let vec_acc = snn.run_simulation(us, targets);
+    for a in vec_acc {
+        println!("Accuracy with fault -> {} %", a);
+    }
     // Possible idea for the GUI implementation
     //******************************************************************
     //while !gui::is_gui_closed() {
