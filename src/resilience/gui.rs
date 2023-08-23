@@ -86,7 +86,7 @@ impl Application for Tour {
                 self.steps.advance();
                 if self.steps.is_choice() {
                     let user_selection = self.create_selection();
-                    let s = &mut self.steps.steps[4];
+                    let s = &mut self.steps.steps[5];
                     match s {
                         Step::Choices { ref mut c } => { *c = user_selection }
                         _ => {}
@@ -438,7 +438,7 @@ impl<'a> Step {
             let r = result.unwrap();
             let question = column![text(format!("Input length: {}", r.input_layer)).size(20)];
             let question2 = column![text(format!("Hidden layers: {:?}", r.hidden_layers)).size(20)];
-            let question3 = column![text(format!("Output length length: {}", r.output_length)).size(20)];
+            let question3 = column![text(format!("Output length: {}", r.output_length)).size(20)];
             let question4 = column![text(format!("Extra weights: {:?}", r.extra_weights)).size(20)];
             let question5 = column![text(format!("Intra weights: {:?}", r.intra_weights)).size(20)];
             let question6 = column![text(format!("Resting potential: {}", r.resting_potential)).size(20)];

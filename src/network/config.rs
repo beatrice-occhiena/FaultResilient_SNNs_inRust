@@ -5,7 +5,16 @@ use crate::network::snn::SNN;
 
 extern crate toml;
 use std::fs::File;
-use std::io::Read;
+use std::io::{BufRead, BufReader, Read};
+use crate::network::neuron::lif::Lif;
+
+// NetworkSetup and Parsing from Config File
+// -----------------------------------------
+// This file defines the `NetworkSetup` struct and functions for parsing network configuration from a TOML file.
+// This module defines the `NetworkSetup` struct and functions for parsing network configuration from a TOML file.
+// - `NetworkSetup` struct holds parsed network configuration parameters.
+// - `network_setup_from_file` reads and parses the TOML config file and returns a `NetworkSetup` object.
+// It also converts the parsed parameters to a fully configured `SNN` object usinf the `SNNBuilder` module.
 
 #[derive(Debug)]
 pub struct NetworkSetup {
@@ -38,7 +47,6 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     config_file.read_to_string(&mut config_toml).expect("Failed to read config file");
 
     // Parse the TOML configuration
-    //let c = toml::from_str(&config_toml);
     let config: toml::Value;// = toml::from_str(&config_toml).expect("Failed to parse TOML config");
     match toml::from_str(&config_toml) {
         Ok(c) => config = c,
@@ -57,7 +65,7 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
         .collect::<Vec<usize>>();
     let output_length = config["output_layer"]["neurons"].as_integer().unwrap() as usize;
 
-    // WEIGHT FILES
+    // WEIGHT FILES -> check if length = hidden_layers_length
     let weight_files = config["weight_files"].as_table().unwrap();
     let extra_weights = weight_files["extra_weights"]
         .as_array()
@@ -103,24 +111,122 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     let input_layer = input_length;
     let mut hidden_layers = hidden_layers_length;
     hidden_layers.push(output_length);
-/*
-    println!("Input Length: {}", input_layer);
-    println!("Hidden Layers: {:?}", hidden_layers);
-    println!("Output Length: {}", output_length);
-    println!("Extra Weights: {:?}", extra_weights);
-    println!("Intra Weights: {:?}", intra_weights);
-    println!("Resting Potential: {}", resting_potential);
-    println!("Reset Potential: {}", reset_potential);
-    println!("Threshold: {}", threshold);
-    println!("Beta: {}", beta);
-    println!("Tau: {}", tau);
-    println!("Spike Length: {}", spike_length);
-    println!("Batch Size: {}", batch_size);
-    println!("Input Spike Train: {}", input_spike_train);
-*/
-     Ok(NetworkSetup::new(input_layer.clone(), hidden_layers.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone()))
 
+     Ok(NetworkSetup::new(input_layer.clone(), hidden_layers.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone()))
     // Now you can use the extracted parameters to build your SNN and perform operations as needed.
+}
+
+pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>) {
+    // Building neurons
+    let mut vec_neurons = Vec::new();
+    for l in n.hidden_layers.iter() {
+        vec_neurons.push(get_neurons(*l, n.reset_potential, n.resting_potential, n.threshold, n.tau));
+    }
+
+    // Getting extra_weights from files
+    let mut vec_extra_weights = Vec::new();
+    let w = get_extra_weights(rem_first_and_last(n.extra_weights.get(0).unwrap().as_str()), n.input_layer, *n.hidden_layers.get(0).unwrap());
+    vec_extra_weights.push(w);
+    for (i,extra_file) in n.extra_weights.iter().enumerate() {
+        if i > 0 && i < n.extra_weights.len() - 1{
+            vec_extra_weights.push(get_extra_weights(rem_first_and_last(extra_file.as_str()), *n.hidden_layers.get(i).unwrap(), *n.hidden_layers.get(i+1).unwrap()));
+        }
+    }
+    vec_extra_weights.push(get_extra_weights(rem_first_and_last(n.extra_weights.get(n.extra_weights.len() - 1).unwrap().as_str()), *n.hidden_layers.get(n.hidden_layers.len() - 2).unwrap(), n.output_length));
+
+    // Building intra_weights -> DA RIFARE
+    let mut vec_intra_weights = Vec::new();
+    for l in n.hidden_layers.iter() {
+        vec_intra_weights.push(get_intra_weights(*l));
+    }
+
+    //Building the SNN
+    let mut snn_builder = SNNBuilder::new(n.input_layer);
+    for (w, n) in vec_extra_weights.iter().zip(vec_intra_weights.iter()).zip(vec_neurons.iter()) {
+        snn_builder = snn_builder.add_layer(n.clone().to_vec(), w.0.clone(), w.1.clone());
+    }
+    let snn = snn_builder.build();
+
+    // Getting input spike trains from file
+    let input_spike_train = get_input_spike_train(rem_first_and_last(n.input_spike_train.as_str()), n.input_layer, n.spike_length, n.batch_size);
+
+    (snn, input_spike_train)
+}
+
+fn get_neurons(num_neurons: usize, reset_potential: f64, resting_potential: f64, threshold: f64, tau: f64) -> Vec<Lif> {
+    // Building the vector of Lif with the parameters received as arguments
+    let mut neurons = Vec::new();
+    for _ in 0..num_neurons {
+        neurons.push(Lif::new(reset_potential, resting_potential, threshold, tau));
+    }
+    neurons
+}
+
+fn get_extra_weights(filename: &str, input_length: usize, num_neurons: usize) -> Vec<Vec<f64>> {
+    // Opening the file
+    println!("{} - {} - {}", filename, input_length, num_neurons);
+    let f = File::open(filename).expect("Error: The weight file doesn't exist");
+    // Initialize the matrix of weights to all zeros
+    let mut extra_weights = vec![vec![0f64; input_length]; num_neurons];
+    // Reading the file by lines
+    let reader = BufReader::new(f);
+    for (i,line) in reader.lines().enumerate() {
+        // Each line is a String -> I have to split it and convert to f64
+        let mut j = 0;
+        for w in line.unwrap().split(" ") {
+            if w != "" {
+                extra_weights[i][j] = w.parse::<f64>().expect("Cannot convert to f64");
+                j+=1;
+            }
+        }
+    }
+    extra_weights
+}
+
+fn get_intra_weights(num_neurons: usize) -> Vec<Vec<f64>> {
+    // The intra weights are not stored in a file but are all set to the value 0.0
+    let w = 0.0;
+    let mut intra_weights = vec![vec![0f64; num_neurons]; num_neurons];
+    for i in 0..num_neurons {
+        for j in 0..num_neurons {
+            if i != j {
+                intra_weights[i][j] = w;
+            }
+        }
+    }
+    intra_weights
+}
+
+fn get_input_spike_train(filename: &str, input_length: usize, spike_length: usize, batch_size: usize) -> Vec<Vec<Vec<u8>>> {
+    // Opening the file
+    let f = File::open(filename).expect("Error: The file spikeTrains.txt doesn't exist");
+    // Initialize the matrix of input spikes to all zeros
+    let mut spike_trains = vec![vec![vec![0u8; spike_length]; input_length]; batch_size];
+    // Reading the file by lines
+    let reader = BufReader::new(f);
+    let mut k = 0;
+    for (i,line) in reader.lines().enumerate() {
+        // Each line is a String -> I have to split it and convert to f64
+        if i==0 || line.as_ref().unwrap().eq("# New slice") {
+            k+=1;
+        }
+        else {
+            let lu8 = line.unwrap().chars().filter(|c| *c != ' ').map(|c|  {
+                c.to_digit(10).unwrap() as u8
+            }).collect::<Vec<u8>>();
+            for (j, w) in lu8.into_iter().enumerate() {
+                spike_trains[k-1][j][i-k-(k-1)*spike_length] = w;
+            }
+        }
+    }
+    spike_trains
+}
+
+pub fn rem_first_and_last(value: &str) -> &str {
+    let mut chars = value.chars();
+    chars.next();
+    chars.next_back();
+    chars.as_str()
 }
 
 /**
