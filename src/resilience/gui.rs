@@ -1,8 +1,8 @@
 // possible GUI implementation with iced
 
 use iced::{alignment, Application, Color, executor, Theme, window};
-use iced::theme;
-use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, scrollable};
+use iced::theme::{self, Text};
+use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, TextInput, scrollable};
 use iced::{Element, Length, Settings, Command};
 use crate::network::config::{build_network_from_setup, compute_accuracy, compute_max_output_spike, network_setup_from_file};
 use crate::network::neuron::lif::Lif;
@@ -295,7 +295,7 @@ impl Steps {
 
     fn is_network(&self) -> bool {
         match self.steps[self.current] {
-            Step::Network { .. } => return true,
+            Step::Network => return true,
             _ => return false
         }
     }
@@ -479,7 +479,7 @@ impl<'a> Step {
     fn view(&self, _debug: bool) -> Element<StepMessage> {
         match self {
             Step::Welcome => Self::welcome(),
-            Step::Network{..} => Self::network(),
+            Step::Network => Self::network(),
             Step::Waiting{} => Self::waiting(),
             Step::Accuracy {snn : _, input_spike_trains: _, targets: _, a} => Self::accuracy(*a),
             Step::Components {intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator }
@@ -516,33 +516,124 @@ impl<'a> Step {
         let c;
         if result.is_ok() {
             let r = result.unwrap();
-            let question = column![text(format!("Input length: {}", r.input_layer)).size(20)];
-            let question2 = column![text(format!("Hidden layers: {:?}", r.hidden_layers)).size(20)];
-            let question3 = column![text(format!("Output length: {}", r.output_length)).size(20)];
-            let question4 = column![text(format!("Extra weights: {:?}", r.extra_weights)).size(20)];
-            let question5 = column![text(format!("Intra weights: {:?}", r.intra_weights)).size(20)];
-            let question6 = column![text(format!("Resting potential: {}", r.resting_potential)).size(20)];
-            let question7 = column![text(format!("Reset potential: {}", r.reset_potential)).size(20)];
-            let question8 = column![text(format!("Threshold: {}", r.threshold)).size(20)];
-            let question9 = column![text(format!("Beta: {}", r.beta)).size(20)];
-            let question10 = column![text(format!("Tau: {}", r.tau)).size(20)];
-            let question11 = column![text(format!("Spike length: {}", r.spike_length)).size(20)];
-            let question12 = column![text(format!("Batch size: {}", r.batch_size)).size(20)];
-            let question13 = column![text(format!("Input Spike Train: {}", r.input_spike_train)).size(20)];
+
+            let section_a = text(format!("NETWORK DIMENSIONS")).size(20).style(theme::Text::Color(Color::new(0.0, 0.0, 1.0, 1.0)));
+            
+            let question1 = text(format!("Input length:  ")).size(20);
+            let text_input1: TextInput<'a, StepMessage> = text_input("Input length", r.input_layer.to_string().as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row1 = row![question1, text_input1];
+            
+            let question2 = text(format!("Hidden layers length:  ")).size(20);
+            let text_input2: TextInput<'a, StepMessage> = text_input("Hidden layers length", format!("{:?}", r.hidden_layers).as_str().clone())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row2 = row![question2, text_input2];
+
+            let question3 = text(format!("Output length:  ")).size(20);
+            let text_input3: TextInput<'a, StepMessage> = text_input("Output length", r.output_length.to_string().as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row3 = row![question3, text_input3];
+
+            let section_b = text(format!("WEIGHT FILES")).size(20).style(theme::Text::Color(Color::new(0.0, 0.0, 1.0, 1.0)));
+
+            let question4 = text(format!("Extra weights files:  ")).size(20);
+            let text_input4: TextInput<'a, StepMessage> = text_input("Extra weights files", format!("{:?}", r.extra_weights).as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row4 = row![question4, text_input4];
+
+            let question5 = text(format!("Intra weights files:  ")).size(20);
+            let text_input5: TextInput<'a, StepMessage> = text_input("Intra weights files", format!("{:?}", r.intra_weights).as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row5 = row![question5, text_input5];
+
+            let section_c = text(format!("NEURON PARAMETERS")).size(20).style(theme::Text::Color(Color::new(0.0, 0.0, 1.0, 1.0)));
+
+            let question6 = text(format!("Resting potential:  ")).size(20);
+            let text_input6: TextInput<'a, StepMessage> = text_input("Resting potential", r.resting_potential.to_string().as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row6 = row![question6, text_input6];
+
+            let question7 = text(format!("Reset potential:  ")).size(20);
+            let text_input7: TextInput<'a, StepMessage> = text_input("Reset potential", r.reset_potential.to_string().as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row7 = row![question7, text_input7];
+
+            let question8 = text(format!("Threshold:  ")).size(20);
+            let text_input8: TextInput<'a, StepMessage> = text_input("Threshold",  r.threshold.to_string().as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row8 = row![question8, text_input8];
+
+            let question9 = text(format!("Beta:  ")).size(20);
+            let text_input9: TextInput<'a, StepMessage> = text_input("Beta", r.beta.to_string().as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row9 = row![question9, text_input9];
+
+            let question10 = text(format!("Tau:  ")).size(20);
+            let text_input10: TextInput<'a, StepMessage> = text_input("Tau", r.tau.to_string().as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row10 = row![question10, text_input10];
+
+            let section_d = text(format!("SIMULATION INPUT SPIKES PARAMETERS")).size(20).style(theme::Text::Color(Color::new(0.0, 0.0, 1.0, 1.0)));
+
+            let question11 = text(format!("Spike length:  ")).size(20);
+            let text_input11: TextInput<'a, StepMessage> = text_input("Spike length", r.spike_length.to_string().as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row11 = row![question11, text_input11];
+
+            let question12 = text(format!("Batch size:  ")).size(20);
+            let text_input12: TextInput<'a, StepMessage> = text_input("Batch size", r.batch_size.to_string().as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row12 = row![question12, text_input12];
+            
+            let question13 = text(format!("Input Spike Train:  ")).size(20);
+            let text_input13: TextInput<'a, StepMessage> = text_input("Input Spike Train file", format!("{:?}", r.input_spike_train).as_str())
+            .on_input(StepMessage::InputChanged)
+            .padding(5)
+            .size(20);
+            let row13 = row![question13, text_input13];
+            
             c = Self::container("Network configuration")
-                .push(question)
-                .push(question2)
-                .push(question3)
-                .push(question4)
-                .push(question5)
-                .push(question6)
-                .push(question7)
-                .push(question8)
-                .push(question9)
-                .push(question10)
-                .push(question11)
-                .push(question12)
-                .push(question13)
+                .push(section_a)
+                .push(row1)
+                .push(row2)
+                .push(row3)
+                .push(section_b)
+                .push(row4)
+                .push(row5)
+                .push(section_c)
+                .push(row6)
+                .push(row7)
+                .push(row8)
+                .push(row9)
+                .push(row10)
+                .push(section_d)
+                .push(row11)
+                .push(row12)
+                .push(row13)
                 .push("", )
                 .push("Please click Next to build and test the accuracy of your network.", )
                 .push("Remeber to click Update to save the changes if you have updated the network's parameters",);
