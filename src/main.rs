@@ -8,7 +8,12 @@ fn main() {
 
     // Possible idea for the file configuration implementation (INCOMPLETE)
     //******************************************************************
-    //let _ = gui::launch();
+    let _ = gui::launch();
+
+    /*
+    // Launch the GUI to collect user input
+    let selected_fault = gui::get_user_fault_selection();
+
 
     let n = network_setup_from_file();
     let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
@@ -30,7 +35,7 @@ fn main() {
         println!("Accuracy with fault -> {} %", a);
     }
     // Possible idea for the GUI implementation
-    //******************************************************************
+    // ******************************************************************
     //while !gui::is_gui_closed() {
     // Launch the GUI to collect user input
     // instead of   let _ = gui::launch();
@@ -47,4 +52,5 @@ fn main() {
     // Pass the results to the GUI for visualization
     //gui::visualize_results(results);
     // }
+    */
 }

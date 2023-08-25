@@ -22,13 +22,17 @@ pub struct Tour {
 
 impl Tour {
     pub fn create_selection(&self) -> UserSelection {
+
+        // User selection initialization
         let mut v = Vec::new();
         let mut fault = FaultType::StuckAt0;
         let mut num_faults= 0;
         let mut input_spike_train = Vec::new();
+
+        // For each step of the GUI, we check what the user has selected
         for i in 1..self.steps.steps.len() {
             match self.steps.steps.get(i).unwrap() {
-                Step::Radio { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator} => {
+                Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator} => {
                     if *intra != false { v.push(ComponentType::Intra) }
                     if *extra != false { v.push(ComponentType::Extra) }
                     if *reset != false { v.push(ComponentType::ResetPotential) }
@@ -41,10 +45,10 @@ impl Tour {
                     if *multiplier != false { v.push(ComponentType::Multiplier) }
                     if *comparator != false { v.push(ComponentType::ThresholdComparator) }
                 },
-                Step::Fault {selection} => {
+                Step::FaultType {selection} => {
                     fault = selection.unwrap();
                 },
-                Step::TextInput {value} => {
+                Step::NumFaults {value} => {
                     num_faults = value.parse::<u64>().unwrap();
                 },
                 Step::Accuracy {input_spike_trains, ..} =>{
@@ -53,7 +57,10 @@ impl Tour {
                 _ => {}
             }
         }
+
+        // Return the user selection
         UserSelection::new(v, fault, num_faults,input_spike_train)
+
     }
 }
 
@@ -217,13 +224,13 @@ impl Steps {
                     targets: Vec::new(),
                     a: 0.0
                 },
-                Step::Radio {
+                Step::Components {
                     intra: false, extra: false,
                     reset: false, resting: false, threshold: false, vmem: false, tau: false, ts: false,
                     adder: false, multiplier: false, comparator: false
                 },
-                Step::Fault { selection: None },
-                Step::TextInput { value: String::new() },
+                Step::FaultType { selection: None },
+                Step::NumFaults { value: String::new() },
                 Step::Choices { c: UserSelection {
                     components: vec![],
                     fault_type: FaultType::StuckAt0,
@@ -308,20 +315,20 @@ impl Steps {
 enum Step {
     Welcome,
     Network,
+    Components {
+        intra: bool, extra: bool,
+        reset: bool, resting: bool, threshold: bool, vmem: bool, tau: bool, ts: bool,
+        adder: bool, multiplier: bool, comparator: bool,
+    },
+    FaultType { selection: Option<FaultType>, },
+    NumFaults { value: String },
+    Choices { c: UserSelection },
     Accuracy {
         snn: SNN<Lif>,
         input_spike_trains: Vec<Vec<Vec<u8>>>,
         targets: Vec<u8>,
         a: f64
     },
-    Fault { selection: Option<FaultType>, },
-    Radio {
-        intra: bool, extra: bool,
-        reset: bool, resting: bool, threshold: bool, vmem: bool, tau: bool, ts: bool,
-        adder: bool, multiplier: bool, comparator: bool,
-    },
-    TextInput { value: String },
-    Choices { c: UserSelection },
     //Image { width: u16, },
     End,
 }
@@ -348,62 +355,62 @@ impl<'a> Step {
     fn update(&mut self, msg: StepMessage) {
         match msg {
             StepMessage::IntraSelected(toggle) => {
-                if let Step::Radio { intra, .. } = self {
+                if let Step::Components { intra, .. } = self {
                     *intra = toggle;
                 }
             }
             StepMessage::ExtraSelected(toggle) => {
-                if let Step::Radio { extra, .. } = self {
+                if let Step::Components { extra, .. } = self {
                     *extra = toggle;
                 }
             }
             StepMessage::RstSelected(toggle) => {
-                if let Step::Radio { reset, .. } = self {
+                if let Step::Components { reset, .. } = self {
                     *reset = toggle;
                 }
             }
             StepMessage::RestSelected(toggle) => {
-                if let Step::Radio { resting, .. } = self {
+                if let Step::Components { resting, .. } = self {
                     *resting = toggle;
                 }
             }
             StepMessage::ThresholdSelected(toggle) => {
-                if let Step::Radio { threshold, .. } = self {
+                if let Step::Components { threshold, .. } = self {
                     *threshold = toggle;
                 }
             }
             StepMessage::MemSelected(toggle) => {
-                if let Step::Radio { vmem, .. } = self {
+                if let Step::Components { vmem, .. } = self {
                     *vmem = toggle;
                 }
             }
             StepMessage::TauSelected(toggle) => {
-                if let Step::Radio { tau, .. } = self {
+                if let Step::Components { tau, .. } = self {
                     *tau = toggle;
                 }
             }
             StepMessage::TsSelected(toggle) => {
-                if let Step::Radio { ts, .. } = self {
+                if let Step::Components { ts, .. } = self {
                     *ts = toggle;
                 }
             }
             StepMessage::AdderSelected(toggle) => {
-                if let Step::Radio { adder, .. } = self {
+                if let Step::Components { adder, .. } = self {
                     *adder = toggle;
                 }
             }
             StepMessage::MulSelected(toggle) => {
-                if let Step::Radio { multiplier, .. } = self {
+                if let Step::Components { multiplier, .. } = self {
                     *multiplier = toggle;
                 }
             }
             StepMessage::ComparatorSelected(toggle) => {
-                if let Step::Radio { comparator, .. } = self {
+                if let Step::Components { comparator, .. } = self {
                     *comparator = toggle;
                 }
             }
             StepMessage::FaultSelected(sel) => {
-                if let Step::Fault { selection } = self {
+                if let Step::FaultType { selection } = self {
                     *selection = Some(sel);
                 }
             }
@@ -413,7 +420,7 @@ impl<'a> Step {
                 }
             }*/
             StepMessage::InputChanged(new_value) => {
-                if let Step::TextInput { value, .. } = self {
+                if let Step::NumFaults { value, .. } = self {
                     *value = new_value;
                 }
             }
@@ -425,10 +432,10 @@ impl<'a> Step {
             Step::Welcome => "Welcome",
             Step::Network => "Network",
             Step::Accuracy { .. } => "Accuracy",
-            Step::Radio { .. } => "Components",
-            Step::Fault {..} => "Fault",
+            Step::Components { .. } => "Components",
+            Step::FaultType {..} => "Fault",
             //Step::Image { .. } => "Image",
-            Step::TextInput { .. } => "Number of faults",
+            Step::NumFaults { .. } => "Number of faults",
             Step::Choices { .. } => "Choices",
             Step::End => "End",
         }
@@ -439,11 +446,11 @@ impl<'a> Step {
             Step::Welcome => true,
             Step::Network => network_setup_from_file().is_ok(),
             Step::Accuracy { .. } => true,
-            Step::Radio { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
+            Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
                 *intra != false || *extra != false || *reset != false || *resting != false || *threshold != false || *vmem != false || *tau != false || *ts != false || *adder != false || *multiplier != false || *comparator != false
             },
-            Step::Fault { selection } => { selection.is_some() },
-            Step::TextInput { value, .. } => {
+            Step::FaultType { selection } => { selection.is_some() },
+            Step::NumFaults { value, .. } => {
                 !value.is_empty() && value.parse::<u64>().is_ok()
             },
             Step::Choices { .. } => true,
@@ -457,10 +464,10 @@ impl<'a> Step {
             Step::Welcome => Self::welcome(),
             Step::Network{..} => Self::network(),
             Step::Accuracy {snn : _, input_spike_trains: _, targets: _, a} => Self::accuracy(*a),
-            Step::Radio {intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator }
+            Step::Components {intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator }
                 => Self::radio(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *adder, *multiplier, *comparator),
-            Step::Fault { selection} => Self::faults(*selection),
-            Step::TextInput { value} => Self::num_faults(value),
+            Step::FaultType { selection} => Self::faults(*selection),
+            Step::NumFaults { value} => Self::num_faults(value),
             Step::Choices { c } => {
                 Self::choices(c)
             },

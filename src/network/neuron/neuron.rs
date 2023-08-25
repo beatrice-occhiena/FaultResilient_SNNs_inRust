@@ -5,5 +5,3 @@ pub trait Neuron {
     fn process_input(&mut self, time: u64, weighted_sum: f64, fault: Option<InjectedFault>) -> u8;
     fn initialize(&mut self);
 }
-
-// #to_do : configure?
