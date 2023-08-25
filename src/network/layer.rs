@@ -28,7 +28,6 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
     let num_n_same = intra_weights.len();
 
     // check the number of neurons for the layer is consistent with the number of rows in the weights matrices
-    // #to_do: check if the check is correct
     if num_n_prev != num_n || num_n_same != num_n 
     {
       panic!("The number of neurons in the layer is not consistent with the number of rows in the weights matrices.");
@@ -169,9 +168,6 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
           }
         }
 
-        // extra = positive contribute
-        // intra = negative contribute
-        // #to_do: check if the sign is correct given the trained data
         let weights_sum = extra_weights_sum + intra_weights_sum;
 
         // compute the membrane potential and check if it spikes

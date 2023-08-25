@@ -97,18 +97,12 @@ impl Application for Tour {
             },
             Message::NextPressed => {
                 self.steps.advance();
-                if self.steps.is_choice() {
-                    let user_selection = self.create_selection();
-                    let s = &mut self.steps.steps[6]; //choice
-                    match s {
-                        Step::Choices { ref mut c } => { *c = user_selection }
-                        _ => {}
-                    };
-                }
+
+                // Build the network and test the accuracy without faults
                 if self.steps.is_accuracy() {
                     let n = network_setup_from_file();
                     let (snn_net, input_spike_train, target) = build_network_from_setup(n.unwrap());
-                    let s = &mut self.steps.steps[2];
+                    let s = &mut self.steps.steps[3];
                     match s {
                         Step::Accuracy { ref mut snn, ref mut input_spike_trains, ref mut targets , ref mut a}
                             => { *snn = snn_net;
@@ -126,6 +120,17 @@ impl Application for Tour {
                         _ => {}
                     };
                 }
+
+                // #to_do: build the network and test the accuracy with faults
+                if self.steps.is_choice() {
+                    let user_selection = self.create_selection();
+                    let s = &mut self.steps.steps[6]; //choice
+                    match s {
+                        Step::Choices { ref mut c } => { *c = user_selection }
+                        _ => {}
+                    };
+                }
+
                 Command::none()
             },
             Message::RestartPressed => {
@@ -148,7 +153,7 @@ impl Application for Tour {
 
         let mut controls = row![];
 
-        if steps.has_previous() && !steps.is_network()  {
+        if steps.has_previous() && !steps.is_network() {
             controls = controls.push(button("Back")
                     .on_press(Message::BackPressed)
                     .style(theme::Button::Secondary),
@@ -158,13 +163,13 @@ impl Application for Tour {
         if steps.is_network() {
             controls = controls.push(button("Update")
                                          .on_press(Message::BackPressed)
-                                         .style(theme::Button::Secondary),
+                                         .style(theme::Button::Positive),
             );
         }
 
         controls = controls.push(horizontal_space(Length::Fill));
 
-        if steps.can_continue() {
+        if steps.can_continue() && !steps.is_exit() {
             controls = controls.push(button("Next").on_press(Message::NextPressed));
         }
 
@@ -218,6 +223,7 @@ impl Steps {
             steps: vec![
                 Step::Welcome,
                 Step::Network,
+                Step::Waiting,
                 Step::Accuracy  {
                     snn: SNN::new(Vec::new()),
                     input_spike_trains: Vec::new(),
@@ -294,6 +300,13 @@ impl Steps {
         }
     }
 
+    fn is_waiting(&self) -> bool {
+        match self.steps[self.current] {
+            Step::Waiting { .. } => return true,
+            _ => return false
+        }
+    }
+
     fn is_accuracy(&self) -> bool {
         match self.steps[self.current] {
             Step::Accuracy { .. } => return true,
@@ -315,6 +328,13 @@ impl Steps {
 enum Step {
     Welcome,
     Network,
+    Waiting,
+    Accuracy {
+        snn: SNN<Lif>,
+        input_spike_trains: Vec<Vec<Vec<u8>>>,
+        targets: Vec<u8>,
+        a: f64
+    },
     Components {
         intra: bool, extra: bool,
         reset: bool, resting: bool, threshold: bool, vmem: bool, tau: bool, ts: bool,
@@ -323,12 +343,6 @@ enum Step {
     FaultType { selection: Option<FaultType>, },
     NumFaults { value: String },
     Choices { c: UserSelection },
-    Accuracy {
-        snn: SNN<Lif>,
-        input_spike_trains: Vec<Vec<Vec<u8>>>,
-        targets: Vec<u8>,
-        a: f64
-    },
     //Image { width: u16, },
     End,
 }
@@ -352,6 +366,7 @@ pub enum StepMessage {
 }
 
 impl<'a> Step {
+    
     fn update(&mut self, msg: StepMessage) {
         match msg {
             StepMessage::IntraSelected(toggle) => {
@@ -431,6 +446,7 @@ impl<'a> Step {
         match self {
             Step::Welcome => "Welcome",
             Step::Network => "Network",
+            Step::Waiting => "Waiting",
             Step::Accuracy { .. } => "Accuracy",
             Step::Components { .. } => "Components",
             Step::FaultType {..} => "Fault",
@@ -445,6 +461,7 @@ impl<'a> Step {
         match self {
             Step::Welcome => true,
             Step::Network => network_setup_from_file().is_ok(),
+            Step::Waiting => true,
             Step::Accuracy { .. } => true,
             Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
                 *intra != false || *extra != false || *reset != false || *resting != false || *threshold != false || *vmem != false || *tau != false || *ts != false || *adder != false || *multiplier != false || *comparator != false
@@ -463,10 +480,11 @@ impl<'a> Step {
         match self {
             Step::Welcome => Self::welcome(),
             Step::Network{..} => Self::network(),
+            Step::Waiting{} => Self::waiting(),
             Step::Accuracy {snn : _, input_spike_trains: _, targets: _, a} => Self::accuracy(*a),
             Step::Components {intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator }
-                => Self::radio(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *adder, *multiplier, *comparator),
-            Step::FaultType { selection} => Self::faults(*selection),
+                => Self::components(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *adder, *multiplier, *comparator),
+            Step::FaultType { selection} => Self::fault_type(*selection),
             Step::NumFaults { value} => Self::num_faults(value),
             Step::Choices { c } => {
                 Self::choices(c)
@@ -488,7 +506,13 @@ impl<'a> Step {
     }
 
     fn network() -> Column<'a, StepMessage> { //OK
+
+        // Read the network parameters from the comfiguration file
         let result = network_setup_from_file();
+
+        // Create the container with the network parameters
+        // #to_do: add the possibility to modify the configuration file from the GUI
+        // #to_do: create a save changes button
         let c;
         if result.is_ok() {
             let r = result.unwrap();
@@ -520,15 +544,22 @@ impl<'a> Step {
                 .push(question12)
                 .push(question13)
                 .push("", )
-                .push("Please click Next to build your network or click Update if you have updated the file", )
-                .push("The building of your network requires at least 1 minute");
+                .push("Please click Next to build and test the accuracy of your network.", )
+                .push("Remeber to click Update to save the changes if you have updated the network's parameters",);
+                
         }
         else {
             c = Self::container("Network configuration")
                 .push("Please complete the network configuration in file config.toml")
-                .push("Please click Update when you have completed the file", );
+                .push("Please click Update when you have filled up the configuration file.", );
         }
         c
+    }
+
+    fn waiting() -> Column<'a, StepMessage> { //OK
+        Self::container("We're about to test your network")
+            .push("The network accuracy test phase without fault injection takes about 1 minute.")
+            .push("Please press Next and wait for the result to appear", )
     }
 
     fn accuracy(a: f64) -> Column<'a, StepMessage> { //OK
@@ -536,11 +567,10 @@ impl<'a> Step {
         Self::container("Network built")
             .push("Your network has been built", )
             .push(question)
-            .push("Please click Next to select a configuration", )
-
+            .push("Please click Next to select the configuration of the faults to inject", )
     }
 
-    fn faults(selection: Option<FaultType>) -> Column<'a, StepMessage> { //OK
+    fn fault_type(selection: Option<FaultType>) -> Column<'a, StepMessage> { //OK
         let question = column![
             text("Select the type of fault").size(20),
             column(FaultType::all().iter().cloned()
@@ -556,7 +586,7 @@ impl<'a> Step {
             .push("Please click Next to insert the number of faults to check", )
     }
 
-    fn radio( //OK
+    fn components( //OK
               intra: bool, extra: bool,
               reset: bool, resting: bool, threshold: bool, vmem: bool, tau: bool, ts: bool,
               adder: bool, multiplier: bool, comparator: bool,
