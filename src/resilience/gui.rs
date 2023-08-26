@@ -31,6 +31,7 @@ impl Tour {
 
         // For each step of the GUI, we check what the user has selected
         for i in 1..self.steps.steps.len() {
+            print!("Step {} -> ", i);
             match self.steps.steps.get(i).unwrap() {
                 Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator} => {
                     if *intra != false { v.push(ComponentType::Intra) }
@@ -275,15 +276,11 @@ impl Steps {
     }
 
     fn restart(&mut self) {
-        self.current = 0;
+        self.current = 4; // Start from the beginning of the fault configuration
     }
 
     fn update_step(&mut self) {
         self.current = self.current;
-    }
-
-    fn is_exit(&self) -> bool {
-        self.current == self.steps.len() - 1
     }
 
     fn is_choice(&self) -> bool {
@@ -312,6 +309,10 @@ impl Steps {
             Step::Accuracy { .. } => return true,
             _ => return false
         }
+    }
+
+    fn is_exit(&self) -> bool {
+        self.current == self.steps.len() - 1
     }
 
     fn can_continue(&self) -> bool {
@@ -748,6 +749,7 @@ impl<'a> Step {
             .push(question2)
             .push(question3)
             .push("Please click Next to run the simulation", )
+            .push("This process may take a while. Please wait for the result to appear", )
     }
     
     /*fn image(width: u16) -> Column<'a, StepMessage> {
@@ -764,6 +766,8 @@ impl<'a> Step {
 
     fn end() -> Column<'a, StepMessage> {
         Self::container("You reached the end!")
+            .push("Thank you for using our tool.")
+            .push("Please click Restart if you want test other kind of faults on your already built network.", )
     }
 }
 
