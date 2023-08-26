@@ -31,7 +31,6 @@ impl Tour {
 
         // For each step of the GUI, we check what the user has selected
         for i in 1..self.steps.steps.len() {
-            print!("Step {} -> ", i);
             match self.steps.steps.get(i).unwrap() {
                 Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator} => {
                     if *intra != false { v.push(ComponentType::Intra) }
@@ -58,6 +57,12 @@ impl Tour {
                 _ => {}
             }
         }
+
+        /* print the user selection components, fault type and number of faults
+        println!("User selection components: {:?}", v);
+        println!("User selection fault type: {:?}", fault);
+        println!("User selection number of faults: {:?}", num_faults);
+        */
 
         // Return the user selection
         UserSelection::new(v, fault, num_faults,input_spike_train)
@@ -125,7 +130,7 @@ impl Application for Tour {
                 // #to_do: build the network and test the accuracy with faults
                 if self.steps.is_choice() {
                     let user_selection = self.create_selection();
-                    let s = &mut self.steps.steps[6]; //choice
+                    let s = &mut self.steps.steps[7]; // choices step
                     match s {
                         Step::Choices { ref mut c } => { *c = user_selection }
                         _ => {}
