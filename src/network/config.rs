@@ -163,36 +163,40 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     // TARGET FILE FOR ACCURACY
     let target_file = config["accuracy"]["target_file"].to_string();
 
-    // Use the parameters to build your network and perform operations
-    let input_layer = input_length;
-    let mut hidden_layers = hidden_layers_length;
-    hidden_layers.push(output_length);
-
-     Ok(NetworkSetup::new(input_layer.clone(), hidden_layers.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone(), target_file.clone()))
+     Ok(NetworkSetup::new(input_length.clone(), hidden_layers_length.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone(), target_file.clone()))
     // Now you can use the extracted parameters to build your SNN and perform operations as needed.
+
 }
 
 pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>, Vec<u8>) {
+    
+    // Collect in one vector all the info about layers' dimensions
+    let mut layers_dim = Vec::new();
+    for l in n.hidden_layers.iter() {
+        layers_dim.push(*l);
+    }
+    layers_dim.push(n.output_length);
+
     // Building neurons
     let mut vec_neurons = Vec::new();
-    for l in n.hidden_layers.iter() {
+    for l in layers_dim.iter() {
         vec_neurons.push(get_neurons(*l, n.reset_potential, n.resting_potential, n.threshold, n.tau));
     }
-
+    
     // Getting extra_weights from files
     let mut vec_extra_weights = Vec::new();
-    let w = get_extra_weights(rem_first_and_last(n.extra_weights.get(0).unwrap().as_str()), n.input_layer, *n.hidden_layers.get(0).unwrap());
+    let w = get_extra_weights(rem_first_and_last(n.extra_weights.get(0).unwrap().as_str()), n.input_layer, *layers_dim.get(0).unwrap());
     vec_extra_weights.push(w);
     for (i,extra_file) in n.extra_weights.iter().enumerate() {
         if i > 0 && i < n.extra_weights.len() - 1{
-            vec_extra_weights.push(get_extra_weights(rem_first_and_last(extra_file.as_str()), *n.hidden_layers.get(i).unwrap(), *n.hidden_layers.get(i+1).unwrap()));
+            vec_extra_weights.push(get_extra_weights(rem_first_and_last(extra_file.as_str()), *layers_dim.get(i).unwrap(), *layers_dim.get(i+1).unwrap()));
         }
     }
-    vec_extra_weights.push(get_extra_weights(rem_first_and_last(n.extra_weights.get(n.extra_weights.len() - 1).unwrap().as_str()), *n.hidden_layers.get(n.hidden_layers.len() - 2).unwrap(), n.output_length));
+    vec_extra_weights.push(get_extra_weights(rem_first_and_last(n.extra_weights.get(n.extra_weights.len() - 1).unwrap().as_str()), *layers_dim.get(layers_dim.len() - 2).unwrap(), n.output_length));
 
     // Building intra_weights -> DA RIFARE
     let mut vec_intra_weights = Vec::new();
-    for l in n.hidden_layers.iter() {
+    for l in layers_dim.iter() {
         vec_intra_weights.push(get_intra_weights(*l));
     }
 
