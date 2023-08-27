@@ -32,10 +32,10 @@ impl UserSelection {
 
 impl < N: Neuron + Clone + Send + 'static > SNN < N >
 {
-    pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>) -> Vec<f64> {
+    pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>) -> (Vec<(f64,InjectedFault)>) {
 
-        let mut thread_handles = Vec::<JoinHandle<f64>>::new();
-        let mut vec_acc = Vec::new();
+        let mut thread_handles = Vec::<JoinHandle<(f64,InjectedFault)>>::new();
+        let mut vec_results = Vec::<(f64,InjectedFault)>::new();
 
         // For each fault to be injected
         for _ in 0..user_selection.num_faults {
@@ -79,6 +79,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
                 // Create the injected fault object
                 let injected_fault = InjectedFault::new(user_selection.fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
+
                 for input_spike_train in input_spikes {
                     // Process the input sequence with the injected fault
                     let output_spikes = snn.process_input(&input_spike_train, Some(injected_fault));
@@ -86,17 +87,24 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
                     let max = compute_max_output_spike(output_spikes);
                     v.push(max);
                 }
-                compute_accuracy(v, &targets)
+                
+                let a = compute_accuracy(v, &targets);
+                let injected_fault = injected_fault.clone();
+                (a, injected_fault)
             });
             thread_handles.push(handle);
         }
 
-        // wait for the threads to finish
+        // wait for the threads to finish and collect the results
+        // - accuracy
+        // - injected fault info
         for handle in thread_handles {
-            vec_acc.push(handle.join().unwrap());
+            let result = handle.join().unwrap();
+            vec_results.push(result);
         }
 
-        vec_acc
+        vec_results
+            
     }
 
 }

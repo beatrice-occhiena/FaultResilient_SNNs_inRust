@@ -8,13 +8,9 @@ fn main() {
 
     // Possible idea for the file configuration implementation (INCOMPLETE)
     //******************************************************************
-    let _ = gui::launch();
+    // let _ = gui::launch();
 
-    /*
-    // Launch the GUI to collect user input
-    let selected_fault = gui::get_user_fault_selection();
-
-
+    // 
     let n = network_setup_from_file();
     let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
 
@@ -29,11 +25,17 @@ fn main() {
     let acc = compute_accuracy(vec_max, &targets);
     println!("Accuracy = {}%", acc);
 
-    let us = UserSelection::new(vec![ComponentType::ThresholdComparator, ComponentType::Extra], FaultType::StuckAt0, 4, input_spike_train);
-    let vec_acc = snn.run_simulation(us, targets);
-    for a in vec_acc {
-        println!("Accuracy with fault -> {} %", a);
+    let us = UserSelection::new(vec![ComponentType::Extra], FaultType::StuckAt0, 10, input_spike_train);
+    let results = snn.run_simulation(us, targets);
+    
+    for (acc, fault) in results {
+        println!(""); // empty line
+        println!("Injected fault info:");
+        println!("{:?}", fault);
+        println!("Resulting accuracy = {}%", acc);
+        println!(""); // empty line
     }
+
     // Possible idea for the GUI implementation
     // ******************************************************************
     //while !gui::is_gui_closed() {
@@ -52,5 +54,4 @@ fn main() {
     // Pass the results to the GUI for visualization
     //gui::visualize_results(results);
     // }
-    */
 }
