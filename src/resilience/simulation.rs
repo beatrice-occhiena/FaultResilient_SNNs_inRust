@@ -32,7 +32,7 @@ impl UserSelection {
 
 impl < N: Neuron + Clone + Send + 'static > SNN < N >
 {
-    pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>) -> (Vec<(f64,InjectedFault)>) {
+    pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>) -> Vec<(f64,InjectedFault)> {
 
         let mut thread_handles = Vec::<JoinHandle<(f64,InjectedFault)>>::new();
         let mut vec_results = Vec::<(f64,InjectedFault)>::new();

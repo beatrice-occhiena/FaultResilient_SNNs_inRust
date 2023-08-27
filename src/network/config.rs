@@ -210,7 +210,7 @@ fn get_input_spike_train(filename: &str, input_length: usize, spike_length: usiz
     let reader = BufReader::new(f);
     let mut k = 0;
     for (i,line) in reader.lines().enumerate() {
-        // Each line is a String -> I have to split it and convert to f64
+        // Each line is a String -> I have to split it and convert to u8
         if k < batch_size + 1 {
             if i==0 || line.as_ref().unwrap().eq("# New slice") {
                 k+=1;
@@ -238,7 +238,7 @@ pub fn rem_first_and_last(value: &str) -> &str {
 pub fn get_targets(filename: &str, batch_size: usize) -> Vec<u8> {
     // Opening the file
     let f = File::open(filename).expect("Error: The targets file doesn't exist");
-    // Initialize the matrix of weights to all zeros
+    // Initialize the vector of targets to all zeros
     let mut targets = vec![0u8; batch_size];
     // Reading the file by lines
     let reader = BufReader::new(f);

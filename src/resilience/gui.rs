@@ -8,7 +8,7 @@ use crate::network::config::{build_network_from_setup, compute_accuracy, compute
 use crate::network::neuron::lif::Lif;
 use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
-use crate::resilience::fault_models::FaultType;
+use crate::resilience::fault_models::{FaultType, InjectedFault};
 use crate::resilience::simulation::UserSelection;
 
 pub fn launch() -> iced::Result {
@@ -66,7 +66,25 @@ impl Tour {
 
         // Return the user selection
         UserSelection::new(v, fault, num_faults,input_spike_train)
+    }
 
+    pub fn get_arguments_for_simulation(&self) -> (UserSelection, Vec<u8>, SNN<Lif>){
+        let mut user_selection = UserSelection::new(vec![], FaultType::StuckAt0, 0, vec![]);
+        let mut target = Vec::new();
+        let mut snn_sim = SNN::new(Vec::new());
+        for i in 1..self.steps.steps.len() {
+            match self.steps.steps.get(i).unwrap() {
+                Step::Choices {c} => {
+                    user_selection = (*c).clone();
+                }
+                Step::Accuracy {snn, targets, ..} => {
+                    snn_sim = (*snn).clone();
+                    target = (*targets).clone();
+                }
+                _ => {}
+            }
+        }
+        (user_selection, target, snn_sim)
     }
 }
 
@@ -135,6 +153,18 @@ impl Application for Tour {
                         Step::Choices { ref mut c } => { *c = user_selection }
                         _ => {}
                     };
+                }
+
+                if self.steps.is_simulation() {
+                    let (user_selection, targets, snn) = self.get_arguments_for_simulation();
+                    let v = snn.run_simulation(user_selection, targets);
+                    let s = &mut self.steps.steps[8];
+                    match s {
+                        Step::Simulation {ref mut a_inj} => {
+                            *a_inj = v;
+                        }
+                        _ => {}
+                    }
                 }
 
                 Command::none()
@@ -249,6 +279,9 @@ impl Steps {
                     num_faults: 0,
                     input_sequence: vec![],
                 }},
+                Step::Simulation {
+                    a_inj: Vec::new()
+                },
                 //Step::Image { width: 300 },
                 Step::End,
             ],
@@ -316,6 +349,13 @@ impl Steps {
         }
     }
 
+    fn is_simulation(&self) -> bool {
+        match self.steps[self.current] {
+            Step::Simulation { .. } => return true,
+            _ => return false
+        }
+    }
+
     fn is_exit(&self) -> bool {
         self.current == self.steps.len() - 1
     }
@@ -349,6 +389,9 @@ enum Step {
     FaultType { selection: Option<FaultType>, },
     NumFaults { value: String },
     Choices { c: UserSelection },
+    Simulation {
+        a_inj: Vec<(f64, InjectedFault)>
+    },
     //Image { width: u16, },
     End,
 }
@@ -459,6 +502,7 @@ impl<'a> Step {
             //Step::Image { .. } => "Image",
             Step::NumFaults { .. } => "Number of faults",
             Step::Choices { .. } => "Choices",
+            Step::Simulation {..} => "Simulation",
             Step::End => "End",
         }
     }
@@ -477,6 +521,7 @@ impl<'a> Step {
                 !value.is_empty() && value.parse::<u64>().is_ok()
             },
             Step::Choices { .. } => true,
+            Step::Simulation {..} => true,
             //Step::Image { .. } => true,
             Step::End => false,
         }
@@ -495,6 +540,7 @@ impl<'a> Step {
             Step::Choices { c } => {
                 Self::choices(c)
             },
+            Step::Simulation {a_inj} => Self::simulation((*a_inj).clone()),
             //Step::Image { width } => Self::image(*width),
             Step::End {} => Self::end(),
         }
@@ -755,6 +801,20 @@ impl<'a> Step {
             .push(question3)
             .push("Please click Next to run the simulation", )
             .push("This process may take a while. Please wait for the result to appear", )
+    }
+
+    fn simulation(a_inj: Vec<(f64, InjectedFault)>) -> Column<'a, StepMessage> { //OK
+        let mut q = Vec::new();
+        for ai in a_inj {
+            let question = column![text(format!("{:?}\nThe accuracy with this fault is: {} %", ai.1, ai.0)).size(20)];
+            q.push(question);
+        }
+        let mut c = Self::container("Simulation finished");
+        for a in q {
+            c = c.push(a);
+        }
+        c = c.push("Please click Next to select a configuration", );
+        c
     }
     
     /*fn image(width: u16) -> Column<'a, StepMessage> {
