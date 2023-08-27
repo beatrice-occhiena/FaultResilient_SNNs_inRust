@@ -169,6 +169,91 @@ impl Application for Tour {
 
                 Command::none()
             },
+            Message::UpdatePressed => {
+                
+                if self.steps.is_network(){
+                    
+                    if let Step::Network { 
+                        input_length, hidden_layers_length, output_length, 
+                        extra_files, intra_files, 
+                        resting_potential, reset_potential, threshold, beta, tau, 
+                        spike_length, batch_size, input_spike_train_file
+                    } = self.steps.steps[1].clone() {
+
+                        // read the network parameters from the configuration file
+                        let mut n = network_setup_from_file().unwrap();
+
+                        // check which parameters have been modified (not empty) in the GUI
+                        if !input_length.is_empty() {
+                            n.input_layer = input_length.parse::<usize>().unwrap();
+                        }
+                        if !hidden_layers_length.is_empty() {
+                            let mut v = Vec::new();
+                            let mut s = hidden_layers_length.clone();
+                            s.retain(|c| c != '[' && c != ']');
+                            let mut s = s.split(",");
+                            for i in s {
+                                v.push(i.parse::<usize>().unwrap());
+                            }
+                            n.hidden_layers = v;
+                        }
+                        if !output_length.is_empty() {
+                            n.output_length = output_length.parse::<usize>().unwrap();
+                        }
+                        if !extra_files.is_empty() {
+                            let mut v = Vec::new();
+                            let mut s = extra_files.clone();
+                            s.retain(|c| c != '[' && c != ']');
+                            let mut s = s.split(",");
+                            for i in s {
+                                v.push(i.to_string());
+                            }
+                            n.extra_weights = v;
+                        }
+                        if !intra_files.is_empty() {
+                            let mut v = Vec::new();
+                            let mut s = intra_files.clone();
+                            s.retain(|c| c != '[' && c != ']');
+                            let mut s = s.split(",");
+                            for i in s {
+                                v.push(i.to_string());
+                            }
+                            n.intra_weights = v;
+                        }
+                        if !resting_potential.is_empty() {
+                            n.resting_potential = resting_potential.parse::<f64>().unwrap();
+                        }
+                        if !reset_potential.is_empty() {
+                            n.reset_potential = reset_potential.parse::<f64>().unwrap();
+                        }
+                        if !threshold.is_empty() {
+                            n.threshold = threshold.parse::<f64>().unwrap();
+                        }
+                        if !beta.is_empty() {
+                            n.beta = beta.parse::<f64>().unwrap();
+                        }
+                        if !tau.is_empty() {
+                            n.tau = tau.parse::<f64>().unwrap();
+                        }
+                        if !spike_length.is_empty() {
+                            n.spike_length = spike_length.parse::<usize>().unwrap();
+                        }
+                        if !batch_size.is_empty() {
+                            n.batch_size = batch_size.parse::<usize>().unwrap();
+                        }
+                        if !input_spike_train_file.is_empty() {
+                            n.target_file = input_spike_train_file.to_string();
+                        }
+                    
+                        // update the configuration file
+                        n.update_config_file();
+                    }
+
+                }
+                // update the GUI window
+                self.steps.update_step();
+                Command::none()
+            },
             Message::RestartPressed => {
                 self.steps.restart();
 
@@ -198,7 +283,7 @@ impl Application for Tour {
 
         if steps.is_network() {
             controls = controls.push(button("Update")
-                                         .on_press(Message::BackPressed)
+                                         .on_press(Message::UpdatePressed)
                                          .style(theme::Button::Positive),
             );
         }
@@ -242,6 +327,7 @@ impl Application for Tour {
 pub enum Message {
     BackPressed,
     NextPressed,
+    UpdatePressed,
     RestartPressed,
     StepMessage(StepMessage),
     ExitMessage
@@ -258,7 +344,12 @@ impl Steps {
         Steps {
             steps: vec![
                 Step::Welcome,
-                Step::Network,
+                Step::Network{
+                    input_length: String::new(), hidden_layers_length: String::new(), output_length: String::new(),
+                    extra_files: String::new(), intra_files: String::new(),
+                    resting_potential: String::new(), reset_potential: String::new(), threshold: String::new(), beta: String::new(), tau: String::new(),
+                    spike_length: String::new(), batch_size: String::new(), input_spike_train_file: String::new(),
+                },
                 Step::Waiting,
                 Step::Accuracy  {
                     snn: SNN::new(Vec::new()),
@@ -330,7 +421,7 @@ impl Steps {
 
     fn is_network(&self) -> bool {
         match self.steps[self.current] {
-            Step::Network => return true,
+            Step::Network {..} => return true,
             _ => return false
         }
     }
@@ -373,7 +464,12 @@ impl Steps {
 #[derive(Debug, Clone)]
 enum Step {
     Welcome,
-    Network,
+    Network{
+        input_length: String, hidden_layers_length: String, output_length: String,
+        extra_files: String, intra_files: String,
+        resting_potential: String, reset_potential: String, threshold: String, beta: String, tau: String,
+        spike_length: String, batch_size: String, input_spike_train_file: String,
+    },
     Waiting,
     Accuracy {
         snn: SNN<Lif>,
@@ -398,6 +494,7 @@ enum Step {
 
 #[derive(Debug, Clone)]
 pub enum StepMessage {
+    // Components selection
     IntraSelected(bool),
     ExtraSelected(bool),
     RstSelected(bool),
@@ -409,9 +506,24 @@ pub enum StepMessage {
     AdderSelected(bool),
     MulSelected(bool),
     ComparatorSelected(bool),
+    // Fault type selection
     FaultSelected(FaultType),
-    //ImageWidthChanged(u16),
+    // Number of faults selection
     InputChanged(String),
+    // Network configuration parameters
+    InputLengthChanged(String),
+    HiddenLayersLengthChanged(String),
+    OutputLengthChanged(String),
+    ExtraFilesChanged(String),
+    IntraFilesChanged(String),
+    RestingPotentialChanged(String),
+    ResetPotentialChanged(String),
+    ThresholdChanged(String),
+    BetaChanged(String),
+    TauChanged(String),
+    SpikeLengthChanged(String),
+    BatchSizeChanged(String),
+    InputSpikeTrainFileChanged(String),
 }
 
 impl<'a> Step {
@@ -478,14 +590,76 @@ impl<'a> Step {
                     *selection = Some(sel);
                 }
             }
-            /*StepMessage::ImageWidthChanged(new_width) => {
-                if let Step::Image { width, .. } = self {
-                    *width = new_width;
-                }
-            }*/
+
+            // Network configuration parameters
             StepMessage::InputChanged(new_value) => {
                 if let Step::NumFaults { value, .. } = self {
                     *value = new_value;
+                }
+            }
+            StepMessage::InputLengthChanged(new_value) => {
+                if let Step::Network { input_length, .. } = self {
+                    *input_length = new_value;
+                }
+            }
+            StepMessage::HiddenLayersLengthChanged(new_value) => {
+                if let Step::Network { hidden_layers_length, .. } = self {
+                    *hidden_layers_length = new_value;
+                }
+            }
+            StepMessage::OutputLengthChanged(new_value) => {
+                if let Step::Network { output_length, .. } = self {
+                    *output_length = new_value;
+                }
+            }
+            StepMessage::ExtraFilesChanged(new_value) => {
+                if let Step::Network { extra_files, .. } = self {
+                    *extra_files = new_value;
+                }
+            }
+            StepMessage::IntraFilesChanged(new_value) => {
+                if let Step::Network { intra_files, .. } = self {
+                    *intra_files = new_value;
+                }
+            }
+            StepMessage::RestingPotentialChanged(new_value) => {
+                if let Step::Network { resting_potential, .. } = self {
+                    *resting_potential = new_value;
+                }
+            }
+            StepMessage::ResetPotentialChanged(new_value) => {
+                if let Step::Network { reset_potential, .. } = self {
+                    *reset_potential = new_value;
+                }
+            }
+            StepMessage::ThresholdChanged(new_value) => {
+                if let Step::Network { threshold, .. } = self {
+                    *threshold = new_value;
+                }
+            }
+            StepMessage::BetaChanged(new_value) => {
+                if let Step::Network { beta, .. } = self {
+                    *beta = new_value;
+                }
+            }
+            StepMessage::TauChanged(new_value) => {
+                if let Step::Network { tau, .. } = self {
+                    *tau = new_value;
+                }
+            }
+            StepMessage::SpikeLengthChanged(new_value) => {
+                if let Step::Network { spike_length, .. } = self {
+                    *spike_length = new_value;
+                }
+            }
+            StepMessage::BatchSizeChanged(new_value) => {
+                if let Step::Network { batch_size, .. } = self {
+                    *batch_size = new_value;
+                }
+            }
+            StepMessage::InputSpikeTrainFileChanged(new_value) => {
+                if let Step::Network { input_spike_train_file, .. } = self {
+                    *input_spike_train_file = new_value;
                 }
             }
         };
@@ -494,7 +668,7 @@ impl<'a> Step {
     fn title(&self) -> &str {
         match self {
             Step::Welcome => "Welcome",
-            Step::Network => "Network",
+            Step::Network {..} => "Network",
             Step::Waiting => "Waiting",
             Step::Accuracy { .. } => "Accuracy",
             Step::Components { .. } => "Components",
@@ -510,7 +684,7 @@ impl<'a> Step {
     fn can_continue(&self) -> bool {
         match self {
             Step::Welcome => true,
-            Step::Network => network_setup_from_file().is_ok(),
+            Step::Network {..} => network_setup_from_file().is_ok(),
             Step::Waiting => true,
             Step::Accuracy { .. } => true,
             Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
@@ -530,7 +704,8 @@ impl<'a> Step {
     fn view(&self, _debug: bool) -> Element<StepMessage> {
         match self {
             Step::Welcome => Self::welcome(),
-            Step::Network => Self::network(),
+            Step::Network {input_length, hidden_layers_length, output_length, extra_files, intra_files, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train_file}
+                => Self::network(input_length, hidden_layers_length, output_length, extra_files, intra_files, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train_file),
             Step::Waiting{} => Self::waiting(),
             Step::Accuracy {snn : _, input_spike_trains: _, targets: _, a} => Self::accuracy(*a),
             Step::Components {intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator }
@@ -557,7 +732,12 @@ impl<'a> Step {
             .push("Please click Next to select a configuration", )
     }
 
-    fn network() -> Column<'a, StepMessage> { //OK
+    fn network(
+        input_length: &str, hidden_layers_length: &str, output_length: &str,
+        extra_files: &str, intra_files: &str,
+        resting_potential: &str, reset_potential: &str, threshold: &str, beta: &str, tau: &str,
+        spike_length: &str, batch_size: &str, input_spike_train_file: &str
+    ) -> Column<'a, StepMessage> { //OK
 
         // Read the network parameters from the comfiguration file
         let result = network_setup_from_file();
@@ -570,24 +750,24 @@ impl<'a> Step {
             let r = result.unwrap();
 
             let section_a = text(format!("NETWORK DIMENSIONS")).size(20).style(theme::Text::Color(Color::new(0.0, 0.0, 1.0, 1.0)));
-            
+
             let question1 = text(format!("Input length:  ")).size(20);
-            let text_input1: TextInput<'a, StepMessage> = text_input("Input length", r.input_layer.to_string().as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input1: TextInput<'a, StepMessage> = text_input(r.input_layer.to_string().as_str(), input_length)
+            .on_input(StepMessage::InputLengthChanged)
             .padding(5)
             .size(20);
             let row1 = row![question1, text_input1];
             
             let question2 = text(format!("Hidden layers length:  ")).size(20);
-            let text_input2: TextInput<'a, StepMessage> = text_input("Hidden layers length", format!("{:?}", r.hidden_layers).as_str().clone())
-            .on_input(StepMessage::InputChanged)
+            let text_input2: TextInput<'a, StepMessage> = text_input(format!("{:?}", r.hidden_layers).as_str().clone(), hidden_layers_length)
+            .on_input(StepMessage::HiddenLayersLengthChanged)
             .padding(5)
             .size(20);
             let row2 = row![question2, text_input2];
 
             let question3 = text(format!("Output length:  ")).size(20);
-            let text_input3: TextInput<'a, StepMessage> = text_input("Output length", r.output_length.to_string().as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input3: TextInput<'a, StepMessage> = text_input(r.output_length.to_string().as_str(), output_length)
+            .on_input(StepMessage::OutputLengthChanged)
             .padding(5)
             .size(20);
             let row3 = row![question3, text_input3];
@@ -595,15 +775,15 @@ impl<'a> Step {
             let section_b = text(format!("WEIGHT FILES")).size(20).style(theme::Text::Color(Color::new(0.0, 0.0, 1.0, 1.0)));
 
             let question4 = text(format!("Extra weights files:  ")).size(20);
-            let text_input4: TextInput<'a, StepMessage> = text_input("Extra weights files", format!("{:?}", r.extra_weights).as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input4: TextInput<'a, StepMessage> = text_input(format!("{:?}", r.extra_weights).as_str(), extra_files)
+            .on_input(StepMessage::ExtraFilesChanged)
             .padding(5)
             .size(20);
             let row4 = row![question4, text_input4];
 
             let question5 = text(format!("Intra weights files:  ")).size(20);
-            let text_input5: TextInput<'a, StepMessage> = text_input("Intra weights files", format!("{:?}", r.intra_weights).as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input5: TextInput<'a, StepMessage> = text_input(format!("{:?}", r.intra_weights).as_str(), intra_files)
+            .on_input(StepMessage::IntraFilesChanged)
             .padding(5)
             .size(20);
             let row5 = row![question5, text_input5];
@@ -611,36 +791,36 @@ impl<'a> Step {
             let section_c = text(format!("NEURON PARAMETERS")).size(20).style(theme::Text::Color(Color::new(0.0, 0.0, 1.0, 1.0)));
 
             let question6 = text(format!("Resting potential:  ")).size(20);
-            let text_input6: TextInput<'a, StepMessage> = text_input("Resting potential", r.resting_potential.to_string().as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input6: TextInput<'a, StepMessage> = text_input(r.resting_potential.to_string().as_str(), resting_potential)
+            .on_input(StepMessage::RestingPotentialChanged)
             .padding(5)
             .size(20);
             let row6 = row![question6, text_input6];
 
             let question7 = text(format!("Reset potential:  ")).size(20);
-            let text_input7: TextInput<'a, StepMessage> = text_input("Reset potential", r.reset_potential.to_string().as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input7: TextInput<'a, StepMessage> = text_input(r.reset_potential.to_string().as_str(), reset_potential)
+            .on_input(StepMessage::ResetPotentialChanged)
             .padding(5)
             .size(20);
             let row7 = row![question7, text_input7];
 
             let question8 = text(format!("Threshold:  ")).size(20);
-            let text_input8: TextInput<'a, StepMessage> = text_input("Threshold",  r.threshold.to_string().as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input8: TextInput<'a, StepMessage> = text_input(r.threshold.to_string().as_str(), threshold)
+            .on_input(StepMessage::ThresholdChanged)
             .padding(5)
             .size(20);
             let row8 = row![question8, text_input8];
 
             let question9 = text(format!("Beta:  ")).size(20);
-            let text_input9: TextInput<'a, StepMessage> = text_input("Beta", r.beta.to_string().as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input9: TextInput<'a, StepMessage> = text_input(r.beta.to_string().as_str(), beta)
+            .on_input(StepMessage::BetaChanged)
             .padding(5)
             .size(20);
             let row9 = row![question9, text_input9];
 
             let question10 = text(format!("Tau:  ")).size(20);
-            let text_input10: TextInput<'a, StepMessage> = text_input("Tau", r.tau.to_string().as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input10: TextInput<'a, StepMessage> = text_input(r.tau.to_string().as_str(), tau)
+            .on_input(StepMessage::TauChanged)
             .padding(5)
             .size(20);
             let row10 = row![question10, text_input10];
@@ -648,22 +828,22 @@ impl<'a> Step {
             let section_d = text(format!("SIMULATION INPUT SPIKES PARAMETERS")).size(20).style(theme::Text::Color(Color::new(0.0, 0.0, 1.0, 1.0)));
 
             let question11 = text(format!("Spike length:  ")).size(20);
-            let text_input11: TextInput<'a, StepMessage> = text_input("Spike length", r.spike_length.to_string().as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input11: TextInput<'a, StepMessage> = text_input( r.spike_length.to_string().as_str(), spike_length)
+            .on_input(StepMessage::SpikeLengthChanged)
             .padding(5)
             .size(20);
             let row11 = row![question11, text_input11];
 
             let question12 = text(format!("Batch size:  ")).size(20);
-            let text_input12: TextInput<'a, StepMessage> = text_input("Batch size", r.batch_size.to_string().as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input12: TextInput<'a, StepMessage> = text_input(r.batch_size.to_string().as_str(), batch_size)
+            .on_input(StepMessage::BatchSizeChanged)
             .padding(5)
             .size(20);
             let row12 = row![question12, text_input12];
             
             let question13 = text(format!("Input Spike Train:  ")).size(20);
-            let text_input13: TextInput<'a, StepMessage> = text_input("Input Spike Train file", format!("{:?}", r.input_spike_train).as_str())
-            .on_input(StepMessage::InputChanged)
+            let text_input13: TextInput<'a, StepMessage> = text_input(format!("{:?}", r.input_spike_train).as_str(), input_spike_train_file)
+            .on_input(StepMessage::InputSpikeTrainFileChanged)
             .padding(5)
             .size(20);
             let row13 = row![question13, text_input13];

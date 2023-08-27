@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use crate::network::builder::SNNBuilder;
 use crate::network::neuron::lif::Lif;
+use std::io::Write;
 
 // NetworkSetup and Parsing from Config File
 // -----------------------------------------
@@ -35,6 +36,59 @@ pub struct NetworkSetup {
 impl NetworkSetup {
     fn new(input_layer: usize, hidden_layers: Vec<usize>, output_length: usize, extra_weights: Vec<String>, intra_weights: Vec<String>, resting_potential: f64, reset_potential: f64, threshold: f64, beta: f64, tau: f64, spike_length: usize, batch_size: usize, input_spike_train: String, target_file: String) -> Self{
         NetworkSetup {input_layer, hidden_layers, output_length, extra_weights, intra_weights, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train, target_file}
+    }
+
+    /**
+     * This function updates the config file with the new parameters specified by the user in the GUI
+     */
+    pub fn update_config_file(&self) {
+        let mut config_file = File::open("src/config.toml").expect("Failed to open config file");
+        let mut config_toml = String::new();
+        config_file.read_to_string(&mut config_toml).expect("Failed to read config file");
+
+        let mut config: toml::Value = toml::from_str(&config_toml).expect("Failed to parse TOML config");
+
+        config["input_layer"]["input_length"] = toml::Value::Integer(self.input_layer as i64);
+
+        let mut hidden_layers = Vec::new();
+        for l in self.hidden_layers.iter() {
+            hidden_layers.push(toml::Value::Integer(*l as i64));
+        }
+        config["hidden_layers"]["neurons"] = toml::Value::Array(hidden_layers);
+
+        config["output_layer"]["neurons"] = toml::Value::Integer(self.output_length as i64);
+
+        let mut extra_weights = Vec::new();
+        for w in self.extra_weights.iter() {
+            extra_weights.push(toml::Value::String(w.to_string()));
+        }
+        config["weight_files"]["extra_weights"] = toml::Value::Array(extra_weights);
+
+        let mut intra_weights = Vec::new();
+        for w in self.intra_weights.iter() {
+            intra_weights.push(toml::Value::String(w.to_string()));
+        }
+        // #to_do: fix config["weight_files"]["intra_weights"] = toml::Value::Array(intra_weights);
+
+        config["LIF_neuron_parameters"]["resting_potential"] = toml::Value::Float(self.resting_potential as f64);
+        config["LIF_neuron_parameters"]["reset_potential"] = toml::Value::Float(self.reset_potential as f64);
+        config["LIF_neuron_parameters"]["threshold"] = toml::Value::Float(self.threshold as f64);
+        config["LIF_neuron_parameters"]["beta"] = toml::Value::Float(self.beta as f64);
+        // #to_do: fix config["LIF_neuron_parameters"]["tau"] = toml::Value::Float(self.tau as f64);
+
+        config["input_spike_train"]["spike_length"] = toml::Value::Integer(self.spike_length as i64);
+        config["input_spike_train"]["batch_size"] = toml::Value::Integer(self.batch_size as i64);
+        config["input_spike_train"]["filename"] = toml::Value::String(self.input_spike_train.to_string());
+
+        // Serialize the updated config Value back to TOML
+        let updated_config = toml::to_string_pretty(&config).expect("Failed to serialize updated config");
+
+        // Open the config file in write mode and write the updated TOML data
+        let mut updated_file = File::create("src/config.toml").expect("Failed to create config file");
+        updated_file
+            .write_all(updated_config.as_bytes())
+            .expect("Failed to write updated config to file");
+
     }
 }
 

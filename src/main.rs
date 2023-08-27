@@ -8,9 +8,9 @@ fn main() {
 
     // Possible idea for the file configuration implementation (INCOMPLETE)
     //******************************************************************
-    // let _ = gui::launch();
+    let _ = gui::launch();
 
-    // 
+    /*
     let n = network_setup_from_file();
     let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
 
@@ -54,4 +54,5 @@ fn main() {
     // Pass the results to the GUI for visualization
     //gui::visualize_results(results);
     // }
+    */
 }

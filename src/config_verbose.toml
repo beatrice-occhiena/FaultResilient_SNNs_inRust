@@ -1,0 +1,66 @@
+# SNN CONFIGURATION FILE
+# ----------------------
+# This configuration file contains parameters and settings for building a neural network with specific characteristics. 
+# It includes details about the network architecture, neuron configurations, weight files, input spike trains, and output file locations. 
+# - Use this file to customize and configure the behavior of the neural network for your specific use case
+# - All this information can also be conveniently accessed and modified through our user-friendly graphical user interface
+
+
+
+# NETWORK DIMENSIONS
+
+[input_layer]
+input_length = 784
+
+# For each hidden layer, specify the number of neurons in that layer
+# hidden_layers is a variable length array, so you can add as many hidden layers as you want
+
+[hidden_layers]
+neurons = [128]
+
+[output_layer]
+neurons = 10
+
+
+
+# WEIGHT FILES
+
+# Specify the weight files for each layer in the network, starting from the first hidden layer
+# weight_files must be an array of the same length as hidden_layers + 1 (for the output layer)
+# intra_weights is optional: 
+# - comment out the line if you don't want to use intra-layer weights
+# - the network will be initialized with weights of 0.0 (no intra-layer contributions)
+
+[weight_files]
+extra_weights = ["simulation/parameters/weightsFile1.txt", "simulation/parameters/weightsFile2.txt"]
+# intra_weights = []
+
+
+
+# NEURON PARAMETERS
+
+# Specify the parameters for each neuron in the network
+# (currently, only LIF neurons are supported)
+# choose between beta and tau to configure the decay rate of the membrane potential
+# - comment out the tau line if you want to use beta instead
+# - if beta is specified, the tau value will be calculated automatically with the formula tau = (-1.0 / beta.ln())
+
+[LIF_neuron_parameters]               
+resting_potential = 0.0
+reset_potential = 0.0
+threshold = 1.0
+beta = 0.9375
+# tau = "none"
+
+
+
+# INPUT SPIKES PARAMETERS
+
+[input_spike_train]
+spike_length = 100                  # Length of the spike train
+batch_size = 256                    # Number of images in each batch
+filename = "simulation/inputSpikes.txt"      # File containing the input spike train
+
+# TARGETS FILE TO COMPUTE ACCURACY
+[accuracy]
+target_file = "simulation/targets.txt"
