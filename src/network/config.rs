@@ -60,13 +60,13 @@ impl NetworkSetup {
 
         let mut extra_weights = Vec::new();
         for w in self.extra_weights.iter() {
-            extra_weights.push(toml::Value::String(w.to_string()));
+            extra_weights.push(toml::Value::String(rem_first_and_last(w.as_str()).to_string()));
         }
         config["weight_files"]["extra_weights"] = toml::Value::Array(extra_weights);
 
         let mut intra_weights = Vec::new();
         for w in self.intra_weights.iter() {
-            intra_weights.push(toml::Value::String(w.to_string()));
+            intra_weights.push(toml::Value::String(rem_first_and_last(w.as_str()).to_string()));
         }
         // #to_do: fix config["weight_files"]["intra_weights"] = toml::Value::Array(intra_weights);
 
@@ -78,7 +78,7 @@ impl NetworkSetup {
 
         config["input_spike_train"]["spike_length"] = toml::Value::Integer(self.spike_length as i64);
         config["input_spike_train"]["batch_size"] = toml::Value::Integer(self.batch_size as i64);
-        config["input_spike_train"]["filename"] = toml::Value::String(self.input_spike_train.to_string());
+        config["input_spike_train"]["filename"] = toml::Value::String(rem_first_and_last(self.input_spike_train.as_str()).to_string());
 
         // Serialize the updated config Value back to TOML
         let updated_config = toml::to_string_pretty(&config).expect("Failed to serialize updated config");
