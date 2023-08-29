@@ -5,6 +5,7 @@ use rand::Rng;
 use crate::network::config::{compute_accuracy, compute_max_output_spike};
 // Import random number generator
 use crate::network::neuron::neuron::Neuron;
+use crate::network::layer::Layer;
 use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::{FaultType, InjectedFault};
@@ -158,24 +159,52 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
      */
     fn apply_fault_before_processing(&self, injected_fault: &InjectedFault) -> bool {
         
+        // Select the component to be modified
+        // 1 - access the layer
+        // 2 - inject the fault
+        // 3 - check if the bit in the component stays unchanged
         let layer = self.get_layer(injected_fault.layer_index);
         let mut layer = layer.lock().unwrap();
-        let component = layer.get_component(injected_fault.component_type, injected_fault.component_index);
-        let mut component = component.lock().unwrap();
-        let mut bit_unchanged = false;
-        if injected_fault.fault_type == FaultType::StuckAt0 {
-            if component.get_value() & (1 << injected_fault.bit_index.unwrap()) == 0 {
-                bit_unchanged = true;
-            }
-            component.set_value(component.get_value() & !(1 << injected_fault.bit_index.unwrap()));
-        }
-        else if injected_fault.fault_type == FaultType::StuckAt1 {
-            if component.get_value() & (1 << injected_fault.bit_index.unwrap()) != 0 {
-                bit_unchanged = true;
-            }
-            component.set_value(component.get_value() | (1 << injected_fault.bit_index.unwrap()));
-        }
-        bit_unchanged
+        let bit_unchanged = layer.apply_fault_in_component(injected_fault);
+
+
+        
     }
 
+}
+
+impl <N: Neuron + Clone + Send + 'static> Layer<N> {
+
+    fn apply_fault_in_component(&self, fault_info: &InjectedFault) -> bool{
+
+        let i_weight = fault_info.component_index / self.get_extra_weights()[0].len();
+        let j_weight = fault_info.component_index % self.get_extra_weights()[0].len();
+
+
+        self.get_extra_weights()[i_weight][j_weight] = 6.54;
+
+        // Access the variable representing the component
+        // 1 - save the reference to the component in a variable
+        let component = match fault_info.component_type {
+            ComponentType::Extra => &self.get_extra_weights()[i_weight][j_weight],
+            ComponentType::Intra => &self.get_intra_weights()[i_weight][j_weight],
+            ComponentType::ResetPotential 
+                => &self.get_neurons()[fault_info.component_index].lock().unwrap().reset_potential,
+            ComponentType::RestingPotential 
+                => &self.get_neurons()[fault_info.component_index].lock().unwrap().resting_potential,
+            ComponentType::Threshold
+                => &self.get_neurons()[fault_info.component_index].lock().unwrap().threshold,
+            ComponentType::Tau
+                => &self.get_neurons()[fault_info.component_index].lock().unwrap().tau,
+            _ => panic!("Components that change over time cannot be injected before the processing phase."),
+            
+        };
+
+        let mut bit_unchanged = false;
+
+        // Apply the fault to the component
+        // ...
+
+        bit_unchanged
+    }
 }
