@@ -68,10 +68,13 @@ impl Tour {
         UserSelection::new(v, fault, num_faults,input_spike_train)
     }
 
-    pub fn get_arguments_for_simulation(&self) -> (UserSelection, Vec<u8>, SNN<Lif>){
+    pub fn get_arguments_for_simulation(&self) -> (UserSelection, Vec<u8>, SNN<Lif>, f64){
+        
         let mut user_selection = UserSelection::new(vec![], FaultType::StuckAt0, 0, vec![]);
         let mut target = Vec::new();
         let mut snn_sim = SNN::new(Vec::new());
+        let mut accuracy = 0.0;
+
         for i in 1..self.steps.steps.len() {
             match self.steps.steps.get(i).unwrap() {
                 Step::Choices {c} => {
@@ -80,11 +83,12 @@ impl Tour {
                 Step::Accuracy {snn, targets, ..} => {
                     snn_sim = (*snn).clone();
                     target = (*targets).clone();
+                    accuracy = (*a).clone();
                 }
                 _ => {}
             }
         }
-        (user_selection, target, snn_sim)
+        (user_selection, target, snn_sim, accuracy)
     }
 }
 
@@ -109,6 +113,7 @@ impl Application for Tour {
     }
 
     fn update(&mut self, event: Message) -> Command<Message> {
+        
         match event {
             Message::BackPressed => {
                 if self.steps.is_network() {
@@ -156,8 +161,8 @@ impl Application for Tour {
                 }
 
                 if self.steps.is_simulation() {
-                    let (user_selection, targets, snn) = self.get_arguments_for_simulation();
-                    let v = snn.run_simulation(user_selection, targets);
+                    let (user_selection, targets, snn, accuracy) = self.get_arguments_for_simulation();
+                    let v = snn.run_simulation(user_selection, targets, accuracy);
                     let s = &mut self.steps.steps[8];
                     match s {
                         Step::Simulation {ref mut a_inj} => {

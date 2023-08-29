@@ -40,7 +40,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
      *  - the accuracy of the SNN with the injected faults
      *  - all the information about the injected fault
      */
-    pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>) -> Vec<(f64,InjectedFault)> {
+    pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>, no_faults_accuracy: f64) -> Vec<(f64,InjectedFault)> {
 
         let mut thread_handles = Vec::<JoinHandle<(f64,InjectedFault)>>::new();
         let mut vec_results = Vec::<(f64,InjectedFault)>::new();
@@ -62,18 +62,42 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
                 let mut v = Vec::new();
 
                 // Randomly generate the injected fault
-                let injected_fault = Self::generate_random_fault(user_selection.components,user_selection.fault_type, &snn, &num_time_steps);
+                let mut injected_fault = Self::generate_random_fault(user_selection.components,user_selection.fault_type, &snn, &num_time_steps);
+
+                // Apply the injected fault to the cloned SNN
+                // - if the fault is a static fault
+                // - AND the component selected doesn't change over time
+                if injected_fault.unwrap().fault_type != FaultType::TransientBitFlip 
+                && injected_fault.unwrap().component_type.is_static_component() {
+                    
+                    // Check if the applied fault actually modifies the value of the bit in the component
+                    // - if the bit was 0 and the fault is stuck-at-0 => the fault doesn't need to be applied
+                    // - if the bit was 1 and the fault is stuck-at-1 => the fault doesn't need to be applied
+                    let bit_unchanged = snn.apply_fault_before_processing(&injected_fault.unwrap());
+
+                    if bit_unchanged {
+                        // There's no need to run the simulation -> the result is the same as the original SNN
+                        // => return the accuracy of the original SNN
+                        // => exit the thread
+                        return (no_faults_accuracy, injected_fault.unwrap());
+                    }else{
+                        // The fault has been applied to the SNN
+                        // => it doesn't need to be injected again during the processing phase
+                        // => continue with the simulation
+                        injected_fault = None;
+                    }
+                }
 
                 for input_spike_train in input_spikes {
                     // Process the input sequence with the injected fault
-                    let output_spikes = snn.process_input(&input_spike_train, Some(injected_fault));
+                    let output_spikes = snn.process_input(&input_spike_train, injected_fault);
                     // Compute accuracy
                     let max = compute_max_output_spike(output_spikes);
                     v.push(max);
                 }
                 
                 let a = compute_accuracy(v, &targets);
-                let injected_fault = injected_fault.clone();
+                let injected_fault = injected_fault.unwrap().clone();
                 (a, injected_fault)
             });
             thread_handles.push(handle);
@@ -91,7 +115,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
             
     }
 
-    fn generate_random_fault(components: Vec<ComponentType>, fault_type: FaultType,snn: &SNN<N>, num_time_steps: &usize) -> InjectedFault {
+    fn generate_random_fault(components: Vec<ComponentType>, fault_type: FaultType,snn: &SNN<N>, num_time_steps: &usize) -> Option<InjectedFault> {
                 
         // If the fault is a transient bit-flip fault
         // -> Select a random time step from the input sequence
@@ -122,8 +146,36 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
         }
 
         // Create and return the injected fault object
-        InjectedFault::new(fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index)
+        let fault = InjectedFault::new(fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
+        Some(fault)
 
+    }
+
+    /**
+     * Apply the injected fault to the SNN before processing the input sequence.
+     * @param injected_fault: information about the fault to be injected.
+     * @return true if the bit in the component is unchanged after the fault is applied.
+     */
+    fn apply_fault_before_processing(&self, injected_fault: &InjectedFault) -> bool {
+        
+        let layer = self.get_layer(injected_fault.layer_index);
+        let mut layer = layer.lock().unwrap();
+        let component = layer.get_component(injected_fault.component_type, injected_fault.component_index);
+        let mut component = component.lock().unwrap();
+        let mut bit_unchanged = false;
+        if injected_fault.fault_type == FaultType::StuckAt0 {
+            if component.get_value() & (1 << injected_fault.bit_index.unwrap()) == 0 {
+                bit_unchanged = true;
+            }
+            component.set_value(component.get_value() & !(1 << injected_fault.bit_index.unwrap()));
+        }
+        else if injected_fault.fault_type == FaultType::StuckAt1 {
+            if component.get_value() & (1 << injected_fault.bit_index.unwrap()) != 0 {
+                bit_unchanged = true;
+            }
+            component.set_value(component.get_value() | (1 << injected_fault.bit_index.unwrap()));
+        }
+        bit_unchanged
     }
 
 }

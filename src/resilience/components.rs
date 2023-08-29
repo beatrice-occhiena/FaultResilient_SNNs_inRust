@@ -72,4 +72,20 @@ impl ComponentType{
       ComponentType::ThresholdComparator => ComponentCategory::InternalProcessingBlock,
     }
   }
+
+  /**
+   * Returns true if the component is a static component 
+   * (i.e. a component whose value does not change during the simulation).
+   */
+  pub fn is_static_component(&self) -> bool{
+    match self {
+      ComponentType::Extra |
+      ComponentType::Intra |
+      ComponentType::ResetPotential |
+      ComponentType::RestingPotential |
+      ComponentType::Threshold |
+      ComponentType::Tau => true,
+      _ => false,
+    }
+  }
 }
