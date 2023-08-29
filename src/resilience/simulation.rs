@@ -32,6 +32,14 @@ impl UserSelection {
 
 impl < N: Neuron + Clone + Send + 'static > SNN < N >
 {
+    /**
+     * Given the user selection, run the simulation of the SNN with the injected faults.
+     * @param user_selection: UserSelection object containing the fault injection parameters defined by the user.
+     * @param targets: Vector of target values for the input sequence (used to compute the accuracy of the SNN with the injected faults).
+     * @return Vector of tuples containing:
+     *  - the accuracy of the SNN with the injected faults
+     *  - all the information about the injected fault
+     */
     pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>) -> Vec<(f64,InjectedFault)> {
 
         let mut thread_handles = Vec::<JoinHandle<(f64,InjectedFault)>>::new();
@@ -39,9 +47,13 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
 
         // For each fault to be injected
         for _ in 0..user_selection.num_faults {
+
+            // Clone the user selection and the SNN to be used in separate threads
             let user_selection = user_selection.clone();
             let snn = self.clone();
             let targets = targets.clone();
+
+            // Spawn a thread to run the simulation
             let handle = thread::spawn(move || {
                 // Input sequence
                 let input_spikes = user_selection.input_sequence;
