@@ -42,7 +42,7 @@ pub enum ComponentType {
   // Connections between neurons
   Extra,
   Intra,
-  // Memory areas
+  // LIF Memory areas
   ResetPotential,
   RestingPotential,
   Threshold,
@@ -61,15 +61,12 @@ impl ComponentType{
     match self {
       ComponentType::Extra |
       ComponentType::Intra => ComponentCategory::Connection,
-      ComponentType::ResetPotential |
-      ComponentType::RestingPotential |
-      ComponentType::Threshold |
-      ComponentType::MembranePotential |
-      ComponentType::Tau |
-      ComponentType::Ts => ComponentCategory::MemoryArea,
+
       ComponentType::Adder |
       ComponentType::Multiplier |
       ComponentType::ThresholdComparator => ComponentCategory::InternalProcessingBlock,
+
+      _ => ComponentCategory::MemoryArea,
     }
   }
 
