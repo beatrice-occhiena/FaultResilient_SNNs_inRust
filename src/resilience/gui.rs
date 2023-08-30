@@ -80,7 +80,7 @@ impl Tour {
                 Step::Choices {c} => {
                     user_selection = (*c).clone();
                 }
-                Step::Accuracy {snn, targets, ..} => {
+                Step::Accuracy {snn, targets, a, ..} => {
                     snn_sim = (*snn).clone();
                     target = (*targets).clone();
                     accuracy = (*a).clone();
