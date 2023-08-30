@@ -28,7 +28,7 @@ fn main() {
     let acc = compute_accuracy(vec_max, &targets);
     println!("Accuracy = {}%", acc);
 
-    let us = UserSelection::new(vec![ComponentType::Extra], FaultType::StuckAt0, 10, input_spike_train);
+    let us = UserSelection::new(vec![ComponentType::Extra], FaultType::StuckAt0, 5, input_spike_train);
     let results = snn.run_simulation(us, targets, acc);
     
     for (acc, fault) in results {

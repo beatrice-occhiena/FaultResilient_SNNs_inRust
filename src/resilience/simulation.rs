@@ -3,7 +3,6 @@ use std::thread;
 use std::thread::JoinHandle;
 use rand::Rng;
 use crate::network::config::{compute_accuracy, compute_max_output_spike};
-// Import random number generator
 use crate::network::neuron::neuron::Neuron;
 use crate::network::layer::Layer;
 use crate::network::snn::SNN;
@@ -63,42 +62,50 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
                 let mut v = Vec::new();
 
                 // Randomly generate the injected fault
-                let mut injected_fault = Self::generate_random_fault(user_selection.components,user_selection.fault_type, &snn, &num_time_steps);
+                let injected_fault = Self::generate_random_fault(user_selection.components,user_selection.fault_type, &snn, &num_time_steps);
+                let mut already_injected = false;
 
                 // Apply the injected fault to the cloned SNN
                 // - if the fault is a static fault
                 // - AND the component selected doesn't change over time
-                if injected_fault.unwrap().fault_type != FaultType::TransientBitFlip 
-                && injected_fault.unwrap().component_type.is_static_component() {
+                if injected_fault.fault_type != FaultType::TransientBitFlip 
+                && injected_fault.component_type.is_static_component() {
                     
                     // Check if the applied fault actually modifies the value of the bit in the component
                     // - if the bit was 0 and the fault is stuck-at-0 => the fault doesn't need to be applied
                     // - if the bit was 1 and the fault is stuck-at-1 => the fault doesn't need to be applied
-                    let bit_unchanged = snn.apply_fault_before_processing(&injected_fault.unwrap());
+                    let bit_unchanged = snn.apply_fault_before_processing(&injected_fault);
 
                     if bit_unchanged {
                         // There's no need to run the simulation -> the result is the same as the original SNN
                         // => return the accuracy of the original SNN
                         // => exit the thread
-                        return (no_faults_accuracy, injected_fault.unwrap());
+                        return (no_faults_accuracy, injected_fault);
                     }else{
                         // The fault has been applied to the SNN
                         // => it doesn't need to be injected again during the processing phase
                         // => continue with the simulation
-                        injected_fault = None;
+                        already_injected = true;
                     }
                 }
 
                 for input_spike_train in input_spikes {
-                    // Process the input sequence with the injected fault
-                    let output_spikes = snn.process_input(&input_spike_train, injected_fault);
+                    
+                    // Process the input sequence
+                    let output_spikes;
+                    if already_injected { // with the fault already injected
+                        output_spikes = snn.process_input(&input_spike_train, None)
+                    }else{ // with the fault to be injected during the processing phase
+                        output_spikes = snn.process_input(&input_spike_train, Some(injected_fault));
+                    };
+
                     // Compute accuracy
                     let max = compute_max_output_spike(output_spikes);
                     v.push(max);
                 }
                 
                 let a = compute_accuracy(v, &targets);
-                let injected_fault = injected_fault.unwrap().clone();
+                let injected_fault = injected_fault.clone();
                 (a, injected_fault)
             });
             thread_handles.push(handle);
@@ -116,7 +123,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
             
     }
 
-    fn generate_random_fault(components: Vec<ComponentType>, fault_type: FaultType,snn: &SNN<N>, num_time_steps: &usize) -> Option<InjectedFault> {
+    fn generate_random_fault(components: Vec<ComponentType>, fault_type: FaultType,snn: &SNN<N>, num_time_steps: &usize) -> InjectedFault {
                 
         // If the fault is a transient bit-flip fault
         // -> Select a random time step from the input sequence
@@ -147,8 +154,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
         }
 
         // Create and return the injected fault object
-        let fault = InjectedFault::new(fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
-        Some(fault)
+        InjectedFault::new(fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index)
 
     }
 
@@ -167,43 +173,65 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
         let mut layer = layer.lock().unwrap();
         let bit_unchanged = layer.apply_fault_in_component(injected_fault);
 
-
-        
+        bit_unchanged
     }
 
 }
 
 impl <N: Neuron + Clone + Send + 'static> Layer<N> {
 
-    fn apply_fault_in_component(&self, fault_info: &InjectedFault) -> bool{
+    fn apply_fault_in_component(&mut self, fault_info: &InjectedFault) -> bool{
 
         let i_weight = fault_info.component_index / self.get_extra_weights()[0].len();
         let j_weight = fault_info.component_index % self.get_extra_weights()[0].len();
 
-
-        self.get_extra_weights()[i_weight][j_weight] = 6.54;
-
         // Access the variable representing the component
         // 1 - save the reference to the component in a variable
         let component = match fault_info.component_type {
-            ComponentType::Extra => &self.get_extra_weights()[i_weight][j_weight],
-            ComponentType::Intra => &self.get_intra_weights()[i_weight][j_weight],
-            ComponentType::ResetPotential 
-                => &self.get_neurons()[fault_info.component_index].lock().unwrap().reset_potential,
-            ComponentType::RestingPotential 
-                => &self.get_neurons()[fault_info.component_index].lock().unwrap().resting_potential,
-            ComponentType::Threshold
-                => &self.get_neurons()[fault_info.component_index].lock().unwrap().threshold,
-            ComponentType::Tau
-                => &self.get_neurons()[fault_info.component_index].lock().unwrap().tau,
+            ComponentType::Extra => &mut self.extra_weights[i_weight][j_weight],
+            ComponentType::Intra => &mut self.intra_weights[i_weight][j_weight],
+            // ... also for the neuron's component
             _ => panic!("Components that change over time cannot be injected before the processing phase."),
-            
         };
 
-        let mut bit_unchanged = false;
+        let bit_unchanged = false;
+        let bit_index = fault_info.bit_index.unwrap();
+        let var_in_bits = (*component).to_bits();
 
-        // Apply the fault to the component
-        // ...
+        //#to_do remove log
+        println!("component before: {}", *component);
+
+        // Inject the fault
+        match fault_info.fault_type {
+            FaultType::StuckAt0 => {
+                if var_in_bits & (1 << bit_index) == 0 {
+
+                    //#to_do remove log
+                    println!("component unchanged");
+
+                    return true; // The bit is already 0 -> the fault doesn't need to be applied
+                }
+                else {
+                    *component = (*fault_info).apply_fault_f64(*component, 0);
+                }
+            },
+            FaultType::StuckAt1 => {
+                if var_in_bits & (1 << bit_index) != 0 {
+
+                    //#to_do remove log
+                    println!("component unchanged");
+
+                    return true; // The bit is already 1 -> the fault doesn't need to be applied
+                }
+                else {
+                    *component = (*fault_info).apply_fault_f64(*component, 0);
+                }
+            },
+            _ => panic!("Only static faults can be injected before the processing phase."),
+        }
+
+        // #to_do remove log
+        println!("component after: {}", *component);
 
         bit_unchanged
     }
