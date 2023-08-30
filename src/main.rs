@@ -18,7 +18,7 @@ fn main() {
     let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
 
     // Processing the input
-    let mut vec_max = Vec::new();
+    /* let mut vec_max = Vec::new();
     for input_spikes in input_spike_train.iter() {
         let output_spikes = snn.process_input(&input_spikes, None);
         let max = compute_max_output_spike(output_spikes);
@@ -26,9 +26,11 @@ fn main() {
     }
 
     let acc = compute_accuracy(vec_max, &targets);
-    println!("Accuracy = {}%", acc);
+    println!("Accuracy = {}%", acc); */
 
-    let us = UserSelection::new(vec![ComponentType::Extra], FaultType::StuckAt0, 5, input_spike_train);
+    let acc = 98.0;
+
+    let us = UserSelection::new(vec![ComponentType::ResetPotential], FaultType::StuckAt1, 2, input_spike_train);
     let results = snn.run_simulation(us, targets, acc);
     
     for (acc, fault) in results {

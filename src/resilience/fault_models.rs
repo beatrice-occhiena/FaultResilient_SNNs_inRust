@@ -17,7 +17,7 @@ impl FaultType {
 
 // Struct representing a fault occurrence with its properties
 #[derive(Debug, Clone, Copy)]
-pub struct InjectedFault {
+pub struct InjectedFault{
     // FAULT PROPERTIES
     pub fault_type: FaultType,
     pub time_step: Option<u64>,               // Time step at which the fault must be injected (for transient bit-flip faults only)
@@ -27,11 +27,16 @@ pub struct InjectedFault {
     pub component_type: ComponentType,          // Type of component in which the fault must be injected
     pub component_index: usize,                 // Index of the component in which the fault must be injected
     pub bit_index: Option<usize>,               // Bit index of the component in which the fault must be injected (not for threshold comparators)
+    // FAULT EFFECT
+    pub prev_value: Option<f64>,                // Previous value of the component (not for threshold comparators)
+    pub new_value: Option<f64>,                 // New value of the component (not for threshold comparators)
 }
+
+
 
 impl InjectedFault {
     // Constructor
-    pub fn new(fault_type: FaultType, time_step: Option<u64>, layer_index: usize, component_type: ComponentType, component_category: ComponentCategory, component_index: usize, bit_index: Option<usize>) -> Self {
+    pub fn new(fault_type: FaultType, time_step: Option<u64>, layer_index: usize, component_type: ComponentType, component_category: ComponentCategory, component_index: usize, bit_index: Option<usize>, prev_value: Option<f64>, new_value: Option<f64>) -> Self {
         InjectedFault {
             fault_type,
             time_step,
@@ -40,6 +45,8 @@ impl InjectedFault {
             component_type,
             component_index,
             bit_index,
+            prev_value,
+            new_value,
         }
     }
 

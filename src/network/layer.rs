@@ -9,7 +9,7 @@ use crate::resilience::fault_models::InjectedFault;
 pub struct Layer<N> 
 where N: Neuron + Clone + Send + 'static
 {
-    neurons: Vec<N>,                    // neurons in a layer
+    pub neurons: Vec<N>,                    // neurons in a layer
     pub extra_weights: Vec<Vec<f64>>,   // weights of the connections between each neuron and the neurons in the previous layer
     pub intra_weights: Vec<Vec<f64>>,   // weights of the connections between each neuron and the neurons in the same layer
     prev_output: Vec<u8>,               // output vector (0/1) in a layer at time instant t-1: used to decrease the v_mem according to the intra_weights

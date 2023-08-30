@@ -86,11 +86,26 @@ impl Neuron for Lif {
 
         output_spike
     }
+    
     // Reset the membrane potential to the resting potential and the time instant to 0
     fn initialize(&mut self) {
         self.membrane_potential = 0.0;
         self.ts = 0;
     }
+
+    // Get the value of the parameter to fault
+    fn get_parameter_to_fault(&mut self, component_type: ComponentType) -> &mut f64{
+        match component_type {
+            ComponentType::ResetPotential       => &mut self.reset_potential,
+            ComponentType::RestingPotential     => &mut self.resting_potential,
+            ComponentType::Threshold            => &mut self.threshold,
+            ComponentType::MembranePotential    => &mut self.membrane_potential,
+            ComponentType::Tau                  => &mut self.tau,
+            //ComponentType::Ts                   => &mut self.ts,
+            _                                   => panic!("Error: the component type is not valid for the LIF neuron"),
+        }   
+    }
+
 }
 
 impl Lif {
