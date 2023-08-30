@@ -1,7 +1,7 @@
 // possible GUI implementation with iced
 
 use iced::{alignment, Application, Color, executor, Theme, window};
-use iced::theme::{self, Text};
+use iced::theme::{self};
 use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, TextInput, scrollable};
 use iced::{Element, Length, Settings, Command};
 use crate::network::config::{build_network_from_setup, compute_accuracy, compute_max_output_spike, network_setup_from_file};
@@ -17,7 +17,6 @@ pub fn launch() -> iced::Result {
 
 pub struct Tour {
     steps: Steps,
-    debug: bool,
 }
 
 impl Tour {
@@ -102,7 +101,6 @@ impl Application for Tour {
         (
             Tour {
                 steps: Steps::new(),
-                debug: false,
             },
             Command::none()
         )
@@ -196,7 +194,7 @@ impl Application for Tour {
                             let mut v = Vec::new();
                             let mut s = hidden_layers_length.clone();
                             s.retain(|c| c != '[' && c != ']');
-                            let mut s = s.split(",");
+                            let s = s.split(",");
                             for i in s {
                                 v.push(i.parse::<usize>().unwrap());
                             }
@@ -209,7 +207,7 @@ impl Application for Tour {
                             let mut v = Vec::new();
                             let mut s = extra_files.clone();
                             s.retain(|c| c != '[' && c != ']');
-                            let mut s = s.split(",");
+                            let s = s.split(",");
                             for i in s {
                                 v.push(i.to_string());
                             }
@@ -219,7 +217,7 @@ impl Application for Tour {
                             let mut v = Vec::new();
                             let mut s = intra_files.clone();
                             s.retain(|c| c != '[' && c != ']');
-                            let mut s = s.split(",");
+                            let s = s.split(",");
                             for i in s {
                                 v.push(i.to_string());
                             }
@@ -308,16 +306,11 @@ impl Application for Tour {
         }
 
         let content: Element<_> = column![
-            steps.view(self.debug).map(Message::StepMessage),
+            steps.view().map(Message::StepMessage),
             controls,
         ].max_width(540).spacing(20).padding(20).into();
 
-        let scrollable = scrollable(
-            container(if self.debug {
-                content.explain(Color::BLACK)
-            } else {
-                content
-            })
+        let scrollable = scrollable(container(content)
                 .width(Length::Fill)
                 .center_x(),
         );
@@ -389,8 +382,8 @@ impl Steps {
         self.steps[self.current].update(msg);
     }
 
-    fn view(&self, debug: bool) -> Element<StepMessage> {
-        self.steps[self.current].view(debug)
+    fn view(&self) -> Element<StepMessage> {
+        self.steps[self.current].view()
     }
 
     fn advance(&mut self) {
@@ -427,13 +420,6 @@ impl Steps {
     fn is_network(&self) -> bool {
         match self.steps[self.current] {
             Step::Network {..} => return true,
-            _ => return false
-        }
-    }
-
-    fn is_waiting(&self) -> bool {
-        match self.steps[self.current] {
-            Step::Waiting { .. } => return true,
             _ => return false
         }
     }
@@ -706,7 +692,7 @@ impl<'a> Step {
         }
     }
 
-    fn view(&self, _debug: bool) -> Element<StepMessage> {
+    fn view(&self) -> Element<StepMessage> {
         match self {
             Step::Welcome => Self::welcome(),
             Step::Network {input_length, hidden_layers_length, output_length, extra_files, intra_files, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train_file}
