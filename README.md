@@ -1,13 +1,13 @@
-# Spiking neural networks and resilience
+# Spiking Neural Networks and resilience
 
 ## Description
-The goal of this project is to create the interface of a Spiking neural network 
+The goal of this project is to create the interface of a Spiking Neural Network 
 and analyze its resilience considering single bit faults.
 
 The training phase of the network has not been carried out, 
 assuming that the trained hyperparameters are already available.
 
-It has been realized for the course "Programmazione di sistema" of Politecnico di Torino, a.y. 2022-2023.
+The project has been realized for the course "Programmazione di sistema" of Politecnico di Torino, a.y. 2022-2023.
 
 ## Group members
 - Beatrice Occhiena
@@ -21,9 +21,10 @@ The repository is structured as follows:
     - `neuron` contains the generic neuron trait definition and the Lif neuron implementation
   - `resilience/` contains the SNN resilience implementation
 - `tests/` contains the tests for the library without any fault
+- `simulation/` contains the Python files that trains the network weights, the input spike trains based on the MNIST dataset and the labels used to compute the accuracy
 
 ## Main structures
-- A generic configuration has been realized using a `Neuron` trait (i.e. an interface) that outlines the common methods and behaviours expected from any neuron model.
+- `Neuron` is the trait used to realize a generic configuration that outlines the common methods and behaviours expected from any neuron model
 ```rust
 pub trait Neuron {
     fn process_input(&mut self, time: u64, weighted_sum: f64, fault: Option<InjectedFault>) -> u8;
@@ -31,8 +32,7 @@ pub trait Neuron {
 }
 ```
 
-- Distinct specific neuron models like LIF, IF, or AdEx can implement this trait, providing their own implementation for the required methods.
-In this project the `Lif` neuron has been implemented:
+- `Lif` is the struct that describes the parameters of a Leaky Integrate-and-Fire neuron
 ```rust
 pub struct Lif {
     reset_potential: f64, // reset potential
@@ -44,7 +44,7 @@ pub struct Lif {
 }
 ```
 
-- The neuron processes inputs in response to individual `SpikeEvent` rather than at fixed time intervals
+- `SpikeEvent` is a struct that represents the inputs processes by the neurons
 ```rust
 pub struct SpikeEvent {
     t: u64, // time instant
@@ -52,7 +52,7 @@ pub struct SpikeEvent {
 }
 ```
 
-- The struct `Layer` represents a layer of neurons
+- `Layer` is a struct that represents a layer of neurons
 ```rust
 pub struct Layer<N> where N: Neuron + Clone + Send + 'static {
     neurons: Vec<N>,                // neurons in a layer
@@ -62,11 +62,71 @@ pub struct Layer<N> where N: Neuron + Clone + Send + 'static {
 }
 ```
 
-## Main methods
+- `SNN` is the struct that represents a Spiking Neural Network composed by a vector of `Layer`s
 ```rust
-fn process_input(&mut self, time: u64, weighted_sum: f64) -> u8;
+pub struct SNN < N: Neuron + Clone + Send + 'static > {
+    layers:  Vec<Arc<Mutex<Layer<N>>>>,
+}
 ```
-This method signature can be applied to many neuron models, particularly those that compute the weighted sum of inputs and use a simple threshold-based firing mechanism.
+
+- `BuilderParameters` is a struct that contains all the parameters describing the network
+```rust
+pub struct BuilderParameters<N: Neuron> { //struct that contains all the parameters describing the network
+    input_length: usize,                // dimension of the network input layer
+    neurons: Vec<Vec<N>>,               // neurons in each layer
+    extra_weights: Vec<Vec<Vec<f64>>>,  // weights of the connections between each neuron and the neurons in the previous layer
+    intra_weights: Vec<Vec<Vec<f64>>>,  // weights of the connections between each neuron and the neurons in the same layer
+    num_layers: usize,                  // number of layers
+}
+```
+
+- `NetworkSetup` is a struct that holds parsed network configuration parameters based on the `config.toml` file
+```rust
+pub struct NetworkSetup {
+    pub input_layer: usize,
+    pub hidden_layers: Vec<usize>,
+    pub output_length: usize,
+    pub extra_weights: Vec<String>,
+    pub intra_weights: Vec<String>,
+    pub resting_potential: f64,
+    pub reset_potential: f64,
+    pub threshold: f64,
+    pub beta: f64,
+    pub tau: f64,
+    pub spike_length: usize,
+    pub batch_size: usize,
+    pub input_spike_train: String,
+    pub target_file: String
+}
+```
+
+- `InjectedFault` is a struct representing a fault occurrence with its properties
+```rust
+pub struct InjectedFault {
+    // FAULT PROPERTIES
+    pub fault_type: FaultType,
+    pub time_step: Option<u64>,               // Time step at which the fault must be injected (for transient bit-flip faults only)
+    // FAULT LOCATION
+    pub layer_index: usize,                     // Layer index of the component in which the fault must be injected
+    pub component_category: ComponentCategory,  // Category of component in which the fault must be injected
+    pub component_type: ComponentType,          // Type of component in which the fault must be injected
+    pub component_index: usize,                 // Index of the component in which the fault must be injected
+    pub bit_index: Option<usize>,               // Bit index of the component in which the fault must be injected (not for threshold comparators)
+}
+```
+
+- `UserSelection` is a struct to hold the fault injection parameters defined by the user
+```rust
+pub struct UserSelection {
+    pub components: Vec<ComponentType>,
+    pub fault_type: FaultType,
+    pub num_faults: u64,
+    pub input_sequence: Vec<Vec<Vec<u8>>>,
+}
+```
+
+## Main methods
+
 
 ## Usage example
 
