@@ -102,7 +102,7 @@ impl Tour {
                 Step::NumFaults {value} => {
                     num_faults = value.parse::<u64>().unwrap();
                 },
-                Step::Simulation {a_inj, ..} =>{
+                Step::Image {a_inj, ..} =>{
                     a_f = (*a_inj).clone();
                 }
                 _ => {}
@@ -114,7 +114,7 @@ impl Tour {
             x_values.push(i as i32);
         }
 
-        let root = BitMapBackend::new("plotters-doc-data/2.png", (1024, 768)).into_drawing_area();
+        let root = BitMapBackend::new("plotters-doc-data/graph.png", (1024, 768)).into_drawing_area();
 
         root.fill(&WHITE)?;
 
@@ -215,13 +215,20 @@ impl Application for Tour {
                     };
                 }
 
-                if self.steps.is_simulation() {
+                if self.steps.is_image() {
                     let (user_selection, targets, snn, accuracy) = self.get_arguments_for_simulation();
                     let v = snn.run_simulation(user_selection, targets, accuracy);
                     let s = &mut self.steps.steps[8];
                     match s {
+                        Step::Image {ref mut a_inj} => {
+                            *a_inj = v.clone();
+                        }
+                        _ => {}
+                    }
+                    let s1 = &mut self.steps.steps[9];
+                    match s1 {
                         Step::Simulation {ref mut a_inj} => {
-                            *a_inj = v;
+                            *a_inj = v.clone();
                         }
                         _ => {}
                     }
@@ -426,10 +433,12 @@ impl Steps {
                     num_faults: 0,
                     input_sequence: vec![],
                 }},
+                Step::Image {
+                    a_inj: Vec::new()
+                },
                 Step::Simulation {
                     a_inj: Vec::new()
                 },
-                Step::Image,
                 Step::End,
             ],
             current: 0,
@@ -489,9 +498,9 @@ impl Steps {
         }
     }
 
-    fn is_simulation(&self) -> bool {
+    fn is_image(&self) -> bool {
         match self.steps[self.current] {
-            Step::Simulation { .. } => return true,
+            Step::Image { .. } => return true,
             _ => return false
         }
     }
@@ -537,7 +546,9 @@ enum Step {
     Simulation {
         a_inj: Vec<(f64, InjectedFault)>
     },
-    Image,
+    Image {
+        a_inj: Vec<(f64, InjectedFault)>
+    },
     End,
 }
 
@@ -722,7 +733,7 @@ impl<'a> Step {
             Step::Accuracy { .. } => "Accuracy",
             Step::Components { .. } => "Components",
             Step::FaultType {..} => "Fault",
-            Step::Image { } => "Image",
+            Step::Image {.. } => "Image",
             Step::NumFaults { .. } => "Number of faults",
             Step::Choices { .. } => "Choices",
             Step::Simulation {..} => "Simulation",
@@ -765,7 +776,7 @@ impl<'a> Step {
                 Self::choices(c)
             },
             Step::Simulation {a_inj} => Self::simulation((*a_inj).clone()),
-            Step::Image { } => Self::image(),
+            Step::Image { .. } => Self::image(),
             Step::End {} => Self::end(),
         }
             .into()
@@ -1035,12 +1046,13 @@ impl<'a> Step {
     fn simulation(a_inj: Vec<(f64, InjectedFault)>) -> Column<'a, StepMessage> { //OK
         let mut q = Vec::new();
         for ai in a_inj {
+            let l = ai.1.layer_index;
             let question = column![text(format!("{:?}\nThe accuracy with this fault is: {} %", ai.1, ai.0)).size(20)];
-            q.push(question);
+            q.push((question, l));
         }
         let mut c = Self::container("Simulation finished");
         for a in q {
-            c = c.push(a);
+            c = c.push(a.0);
         }
         c = c.push("Please click Next to select a configuration", );
         c
@@ -1048,7 +1060,8 @@ impl<'a> Step {
     
     fn image() -> Column<'a, StepMessage> {
         Self::container("Accuracy graphic")
-            .push(image("plotters-doc-data/2.png").width(900))
+            .push(image("plotters-doc-data/graph.png").width(900))
+            .push("Please click Next to see the details of the simulation")
     }
 
     fn end() -> Column<'a, StepMessage> {
