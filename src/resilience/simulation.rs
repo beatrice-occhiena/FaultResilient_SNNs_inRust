@@ -155,7 +155,7 @@ impl < N: Neuron + Clone + Send + 'static > SNN < N >
         }
 
         // Create and return the injected fault object
-        InjectedFault::new(fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index, None, None)
+        InjectedFault::new(fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index)
 
     }
 
@@ -199,7 +199,6 @@ impl <N: Neuron+ Clone + Send + 'static> Layer<N> {
         let var_in_bits = (*component).to_bits();
 
         //#to_do remove log
-        fault_info.prev_value = Some(*component);
         println!("component before: {}", *component);
 
         // Inject the fault
@@ -208,7 +207,6 @@ impl <N: Neuron+ Clone + Send + 'static> Layer<N> {
                 if var_in_bits & (1 << bit_index) == 0 {
 
                     //#to_do remove log
-                    fault_info.new_value = Some(*component);
                     println!("component unchanged");
 
                     return true; // The bit is already 0 -> the fault doesn't need to be applied
@@ -221,7 +219,6 @@ impl <N: Neuron+ Clone + Send + 'static> Layer<N> {
                 if var_in_bits & (1 << bit_index) != 0 {
 
                     //#to_do remove log
-                    fault_info.new_value = Some(*component);
                     println!("component unchanged");
 
                     return true; // The bit is already 1 -> the fault doesn't need to be applied
@@ -234,7 +231,6 @@ impl <N: Neuron+ Clone + Send + 'static> Layer<N> {
         }
 
         // #to_do remove log
-        fault_info.new_value = Some(*component);
         println!("component after: {}", *component);
 
         bit_unchanged
