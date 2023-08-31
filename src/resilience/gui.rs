@@ -1,8 +1,9 @@
 // possible GUI implementation with iced
 
+use std::error::Error;
 use iced::{alignment, Application, Color, executor, Theme, window};
 use iced::theme::{self};
-use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, TextInput, scrollable};
+use iced::widget::{checkbox, column, container, horizontal_space, radio, row, text, text_input, Button, Column, TextInput, scrollable, image};
 use iced::{Element, Length, Settings, Command};
 use crate::network::config::{build_network_from_setup, compute_accuracy, compute_max_output_spike, network_setup_from_file};
 use crate::network::neuron::lif::Lif;
@@ -10,6 +11,8 @@ use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
 use crate::resilience::fault_models::{FaultType, InjectedFault};
 use crate::resilience::simulation::UserSelection;
+use plotters::prelude::*;
+use plotters::style::Color as OtherColor;
 
 pub fn launch() -> iced::Result {
     Tour::run(Settings::default())
@@ -88,6 +91,60 @@ impl Tour {
             }
         }
         (user_selection, target, snn_sim, accuracy)
+    }
+
+    fn graphic(&self) -> Result<(), Box<dyn Error>> {
+        let mut num_faults= 0;
+        let mut a_f = Vec::new();
+        // For each step of the GUI, we check what the user has selected
+        for i in 1..self.steps.steps.len() {
+            match self.steps.steps.get(i).unwrap() {
+                Step::NumFaults {value} => {
+                    num_faults = value.parse::<u64>().unwrap();
+                },
+                Step::Simulation {a_inj, ..} =>{
+                    a_f = (*a_inj).clone();
+                }
+                _ => {}
+            }
+        }
+
+        let mut x_values = Vec::new();
+        for i in 0..num_faults {
+            x_values.push(i as i32);
+        }
+
+        let root = BitMapBackend::new("plotters-doc-data/2.png", (1024, 768)).into_drawing_area();
+
+        root.fill(&WHITE)?;
+
+        let n = (num_faults-1) as i32;
+
+        let mut chart = ChartBuilder::on(&root)
+            .x_label_area_size(35)
+            .y_label_area_size(40)
+            .margin(5)
+            .caption("Accuracy with faults", ("sans-serif", 50))
+            .build_cartesian_2d(0..n, 0..100)?;
+
+        chart
+            .configure_mesh()
+            .y_desc("Accuracy (%)")
+            .x_desc("Fault number")
+            .axis_desc_style(("sans-serif", 15))
+            .draw()?;
+
+        let mut v = Vec::new();
+        for i in 0..num_faults {
+            v.push((x_values[i as usize] as i32, a_f[i as usize].0 as i32));
+        }
+        chart.draw_series(LineSeries::new(v.iter().map(|(i,j)| (*i, *j)), RED.filled())
+            .point_size(5)).unwrap();
+
+        // To avoid the IO failure being ignored silently, we manually call the present function
+        root.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
+
+        Ok(())
     }
 }
 
@@ -168,6 +225,7 @@ impl Application for Tour {
                         }
                         _ => {}
                     }
+                    self.graphic().unwrap();
                 }
 
                 Command::none()
@@ -371,7 +429,7 @@ impl Steps {
                 Step::Simulation {
                     a_inj: Vec::new()
                 },
-                //Step::Image { width: 300 },
+                Step::Image,
                 Step::End,
             ],
             current: 0,
@@ -479,7 +537,7 @@ enum Step {
     Simulation {
         a_inj: Vec<(f64, InjectedFault)>
     },
-    //Image { width: u16, },
+    Image,
     End,
 }
 
@@ -664,7 +722,7 @@ impl<'a> Step {
             Step::Accuracy { .. } => "Accuracy",
             Step::Components { .. } => "Components",
             Step::FaultType {..} => "Fault",
-            //Step::Image { .. } => "Image",
+            Step::Image { } => "Image",
             Step::NumFaults { .. } => "Number of faults",
             Step::Choices { .. } => "Choices",
             Step::Simulation {..} => "Simulation",
@@ -687,7 +745,7 @@ impl<'a> Step {
             },
             Step::Choices { .. } => true,
             Step::Simulation {..} => true,
-            //Step::Image { .. } => true,
+            Step::Image { .. } => true,
             Step::End => false,
         }
     }
@@ -707,7 +765,7 @@ impl<'a> Step {
                 Self::choices(c)
             },
             Step::Simulation {a_inj} => Self::simulation((*a_inj).clone()),
-            //Step::Image { width } => Self::image(*width),
+            Step::Image { } => Self::image(),
             Step::End {} => Self::end(),
         }
             .into()
@@ -988,17 +1046,10 @@ impl<'a> Step {
         c
     }
     
-    /*fn image(width: u16) -> Column<'a, StepMessage> {
-        Self::container("Image")
-            .push("An image that tries to keep its aspect ratio.")
-            .push(ferris(width))
-            .push(slider(100..=500, width, StepMessage::ImageWidthChanged))
-            .push(
-                text(format!("Width: {width} px"))
-                    .width(Length::Fill)
-                    .horizontal_alignment(alignment::Horizontal::Center),
-            )
-    }*/
+    fn image() -> Column<'a, StepMessage> {
+        Self::container("Accuracy graphic")
+            .push(image("plotters-doc-data/2.png").width(900))
+    }
 
     fn end() -> Column<'a, StepMessage> {
         Self::container("You reached the end!")
@@ -1007,18 +1058,6 @@ impl<'a> Step {
     }
 }
 
-/*fn ferris<'a>(width: u16) -> Container<'a, StepMessage> {
-    container(
-        if cfg!(target_arch = "wasm32") {
-            image("tour/images/ferris.png")
-        } else {
-            image(format!("{}/images/ferris.png", env!("CARGO_MANIFEST_DIR")))
-        }
-        .width(width),
-    )
-    .width(Length::Fill)
-    .center_x()
-}*/
 
 fn button<'a, Message: Clone>(label: &str) -> Button<'a, Message> {
     iced::widget::button(
