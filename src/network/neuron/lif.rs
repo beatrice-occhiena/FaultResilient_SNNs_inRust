@@ -1,6 +1,6 @@
 use crate::network::neuron::neuron::Neuron;
 use crate::resilience::components::{ComponentType, ComponentCategory};
-use crate::resilience::fault_models::InjectedFault;
+use crate::resilience::fault_models::{InjectedFault, ApplyFault};
 // Implements the Neuron trait with the leaky integrate-and-fire (LIF) model.
 
 #[derive(Debug)]
@@ -58,7 +58,7 @@ impl Neuron for Lif {
         // Possible fault in the adder/multiplier
         // #to_do: CHECK CORRECTNESS !!!
         if fault.is_some() && (fault.unwrap().component_type == ComponentType::Adder || fault.unwrap().component_type == ComponentType::Multiplier) {
-            weighted_sum = fault.unwrap().apply_fault_f64(weighted_sum, time);
+            weighted_sum = fault.unwrap().apply_fault(weighted_sum, time);
         }
 
         // Compute the membrane potential at the time instant t
@@ -81,7 +81,7 @@ impl Neuron for Lif {
         // - stuck-at-1: the neuron always spikes
         // - bit-flip: the neuron spikes when v_mem < v_th
         if fault.is_some() && fault.unwrap().component_type == ComponentType::ThresholdComparator{
-            output_spike = fault.unwrap().apply_fault_to_spike(output_spike, time);
+            output_spike = fault.unwrap().apply_fault(output_spike, time);
         }
 
         output_spike
@@ -123,12 +123,12 @@ impl Lif {
         if let Some(injected_fault) = fault {
             if injected_fault.component_category == ComponentCategory::MemoryArea {
                 match injected_fault.component_type {
-                    ComponentType::ResetPotential       => reset_potential = injected_fault.apply_fault_f64(reset_potential, time),
-                    ComponentType::RestingPotential     => resting_potential = injected_fault.apply_fault_f64(resting_potential, time),
-                    ComponentType::Threshold            => threshold = injected_fault.apply_fault_f64(threshold, time),
-                    ComponentType::MembranePotential    => membrane_potential = injected_fault.apply_fault_f64(membrane_potential, time),
-                    ComponentType::Tau                  => tau = injected_fault.apply_fault_f64(tau, time),
-                    ComponentType::Ts                   => ts = injected_fault.apply_fault_u64(ts, time),
+                    ComponentType::ResetPotential       => reset_potential = injected_fault.apply_fault(reset_potential, time),
+                    ComponentType::RestingPotential     => resting_potential = injected_fault.apply_fault(resting_potential, time),
+                    ComponentType::Threshold            => threshold = injected_fault.apply_fault(threshold, time),
+                    ComponentType::MembranePotential    => membrane_potential = injected_fault.apply_fault(membrane_potential, time),
+                    ComponentType::Tau                  => tau = injected_fault.apply_fault(tau, time),
+                    ComponentType::Ts                   => ts = injected_fault.apply_fault(ts, time),
                     _                                   => {}
                 }
             }

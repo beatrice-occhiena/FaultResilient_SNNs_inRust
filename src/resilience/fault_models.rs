@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 /* Module for fault models */
 use crate::resilience::components::{ComponentType, ComponentCategory};
 
@@ -19,8 +21,8 @@ impl FaultType {
 #[derive(Debug, Clone, Copy)]
 pub struct InjectedFault{
     // FAULT PROPERTIES
-    pub fault_type: FaultType,
-    pub time_step: Option<u64>,               // Time step at which the fault must be injected (for transient bit-flip faults only)
+    pub fault_type: FaultType,                  // Type of fault
+    pub time_step: Option<u64>,                 // Time step at which the fault must be injected (for transient bit-flip faults only)
     // FAULT LOCATION
     pub layer_index: usize,                     // Layer index of the component in which the fault must be injected
     pub component_category: ComponentCategory,  // Category of component in which the fault must be injected
@@ -28,8 +30,6 @@ pub struct InjectedFault{
     pub component_index: usize,                 // Index of the component in which the fault must be injected
     pub bit_index: Option<usize>,               // Bit index of the component in which the fault must be injected (not for threshold comparators)
 }
-
-
 
 impl InjectedFault {
     // Constructor
@@ -45,7 +45,23 @@ impl InjectedFault {
         }
     }
 
-    pub fn apply_fault_f64(&self, var: f64, timestamp: u64) -> f64 {
+    pub fn stuck_at_0(var: u64, bit_index: usize) -> u64 {
+        var & !(1 << bit_index)
+    }
+    pub fn stuck_at_1(var: u64, bit_index: usize) -> u64 {
+        var | (1 << bit_index)
+    }
+    pub fn bit_flip(var: u64, bit_index: usize) -> u64 {
+        var ^ (1 << bit_index)
+    }
+}
+
+pub trait ApplyFault<T> {
+    fn apply_fault(&self, var: T, timestamp: u64) -> T;
+}
+
+impl ApplyFault<f64> for InjectedFault {
+    fn apply_fault(&self, var: f64, timestamp: u64) -> f64 {
 
         // Convert f64 to u64 to get access to its representation in bits
         let mut var_in_bits = var.to_bits();
@@ -65,8 +81,10 @@ impl InjectedFault {
         // Convert back to f64
         f64::from_bits(var_in_bits)
     }
+}
 
-    pub fn apply_fault_u64(&self, mut var: u64, timestamp: u64) -> u64 {
+impl ApplyFault<u64> for InjectedFault {
+    fn apply_fault(&self, mut var: u64, timestamp: u64) -> u64 {
         if self.fault_type == FaultType::StuckAt0 {
             var = Self::stuck_at_0(var, self.bit_index.unwrap());
         }
@@ -80,19 +98,11 @@ impl InjectedFault {
         }
         var
     }
-
-    pub fn stuck_at_0(var: u64, bit_index: usize) -> u64 {
-        var & !(1 << bit_index)
-    }
-    pub fn stuck_at_1(var: u64, bit_index: usize) -> u64 {
-        var | (1 << bit_index)
-    }
-    pub fn bit_flip(var: u64, bit_index: usize) -> u64 {
-        var ^ (1 << bit_index)
-    }
-
+}
+    
+impl ApplyFault<u8> for InjectedFault {
     // This function simulate the effect of a fault on a variable of dimension 1 bit
-    pub fn apply_fault_to_spike(&self, spike_value: u8, timestamp: u64) -> u8 {
+    fn apply_fault(&self, spike_value: u8, timestamp: u64) -> u8 {
         
         if self.fault_type == FaultType::StuckAt0 {
             0
@@ -112,5 +122,42 @@ impl InjectedFault {
             spike_value
         }
     }
+}
 
+
+#[derive(Debug, Clone, Copy)]
+pub struct FaultedValue<T> {
+    pub pre_value: Option<T>,
+    pub post_value: Option<T>,
+}
+
+
+impl <T: Debug + Clone> FaultedValue<T> {
+    
+    pub fn new(pre_value: Option<T>, post_value: Option<T>) -> Self {
+        FaultedValue {
+            pre_value,
+            post_value,
+        }
+    }
+
+    pub fn print(&self) {
+        match self.pre_value.clone() {
+            Some(_pre_value) => {
+                println!("Value before fault: {:?}", self.pre_value.clone().unwrap());
+                
+                match self.post_value.clone() {
+                    Some(_post_value) => {
+                        println!("Value after fault: {:?}", self.post_value.clone().unwrap());
+                    },
+                    None => {
+                        println!("Value unchanged");
+                    }
+                }
+            },
+            None => {
+                println!("Component value changed multiple times");
+            }
+        }
+    }
 }

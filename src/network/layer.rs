@@ -2,7 +2,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use crate::network::neuron::neuron::Neuron;
 use crate::network::event::spike_event::SpikeEvent;
 use crate::resilience::components::{ComponentType, ComponentCategory};
-use crate::resilience::fault_models::InjectedFault;
+use crate::resilience::fault_models::{InjectedFault, ApplyFault};
 
 
 #[derive(Debug)]
@@ -141,7 +141,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
             && fault.unwrap().component_type == ComponentType::Extra 
             && fault.unwrap().component_index == (i*extra_len + j)
           {
-            extra_weights_sum += fault.unwrap().apply_fault_f64(*weight, timestamp) * input_spikes[j] as f64;
+            extra_weights_sum += fault.unwrap().apply_fault(*weight, timestamp) * input_spikes[j] as f64;
           }
           else {
             extra_weights_sum += weight * input_spikes[j] as f64;
@@ -159,7 +159,7 @@ impl <N: Neuron + Clone + Send + 'static> Layer<N> {
               && fault.unwrap().component_type == ComponentType::Intra 
               && fault.unwrap().component_index == (i*intra_len + j)
             {
-              intra_weights_sum += fault.unwrap().apply_fault_f64(*weight, timestamp) * self.prev_output[j] as f64;
+              intra_weights_sum += fault.unwrap().apply_fault(*weight, timestamp) * self.prev_output[j] as f64;
             }
             else {
               intra_weights_sum += weight * self.prev_output[j] as f64;

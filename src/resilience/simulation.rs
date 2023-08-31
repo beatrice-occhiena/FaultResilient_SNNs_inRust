@@ -3,12 +3,11 @@ use std::thread;
 use std::thread::JoinHandle;
 use rand::Rng;
 use crate::network::config::{compute_accuracy, compute_max_output_spike};
-use crate::network::neuron;
 use crate::network::neuron::neuron::Neuron;
 use crate::network::layer::Layer;
 use crate::network::snn::SNN;
 use crate::resilience::components::ComponentType;
-use crate::resilience::fault_models::{FaultType, InjectedFault};
+use crate::resilience::fault_models::{FaultType, InjectedFault, ApplyFault};
 
 // Struct to hold the fault injection parameters defined by the user
 #[derive(Debug, Clone)]
@@ -212,7 +211,7 @@ impl <N: Neuron+ Clone + Send + 'static> Layer<N> {
                     return true; // The bit is already 0 -> the fault doesn't need to be applied
                 }
                 else {
-                    *component = (*fault_info).apply_fault_f64(*component, 0);
+                    *component = (*fault_info).apply_fault(*component, 0);
                 }
             },
             FaultType::StuckAt1 => {
@@ -224,7 +223,7 @@ impl <N: Neuron+ Clone + Send + 'static> Layer<N> {
                     return true; // The bit is already 1 -> the fault doesn't need to be applied
                 }
                 else {
-                    *component = (*fault_info).apply_fault_f64(*component, 0);
+                    *component = (*fault_info).apply_fault(*component, 0);
                 }
             },
             _ => panic!("Only static faults can be injected before the processing phase."),
