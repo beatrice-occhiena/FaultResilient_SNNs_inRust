@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 
 /* Module for fault models */
 use crate::resilience::components::{ComponentType, ComponentCategory};
@@ -29,6 +29,23 @@ pub struct InjectedFault{
     pub component_type: ComponentType,          // Type of component in which the fault must be injected
     pub component_index: usize,                 // Index of the component in which the fault must be injected
     pub bit_index: Option<usize>,               // Bit index of the component in which the fault must be injected (not for threshold comparators)
+}
+
+impl Display for InjectedFault {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Fault type: {}\n", String::from(self.fault_type))?;
+        if self.time_step.is_some() {
+            write!(f, "Time step: {}\n", self.time_step.unwrap())?;
+        }
+        write!(f, "Layer index: {}\n", self.layer_index)?;
+        write!(f, "Component category: {}\n", String::from(self.component_category))?;
+        write!(f, "Component type: {}\n", String::from(self.component_type))?;
+        write!(f, "Component index: {}\n", self.component_index)?;
+        if self.time_step.is_some() {
+            write!(f, "Bit index: {}\n", self.bit_index.unwrap())?;
+        }
+        write!(f, "")
+    }
 }
 
 impl InjectedFault {
@@ -77,7 +94,7 @@ impl ApplyFault<f64> for InjectedFault {
                 var_in_bits = Self::bit_flip(var_in_bits, self.bit_index.unwrap());
             }
         }
-        
+
         // Convert back to f64
         f64::from_bits(var_in_bits)
     }

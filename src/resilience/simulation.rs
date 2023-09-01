@@ -182,14 +182,16 @@ impl <N: Neuron+ Clone + Send + 'static> Layer<N> {
 
     fn apply_fault_in_component(&mut self, fault_info: &mut InjectedFault) -> bool{
 
-        let i_weight = fault_info.component_index / self.get_extra_weights()[0].len();
-        let j_weight = fault_info.component_index % self.get_extra_weights()[0].len();
+        let i_extra_weight = fault_info.component_index / self.get_extra_weights()[0].len();
+        let j_extra_weight = fault_info.component_index % self.get_extra_weights()[0].len();
+        let i_intra_weight = fault_info.component_index / self.get_intra_weights()[0].len();
+        let j_intra_weight = fault_info.component_index % self.get_intra_weights()[0].len();
 
         // Access the variable representing the component
         // 1 - save the reference to the component in a variable
         let component = match fault_info.component_type {
-            ComponentType::Extra => &mut self.extra_weights[i_weight][j_weight],
-            ComponentType::Intra => &mut self.intra_weights[i_weight][j_weight],
+            ComponentType::Extra => &mut self.extra_weights[i_extra_weight][j_extra_weight],
+            ComponentType::Intra => &mut self.intra_weights[i_intra_weight][j_intra_weight],
             _ => self.neurons[fault_info.component_index].get_parameter_to_fault(fault_info.component_type),
         };
 
