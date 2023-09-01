@@ -182,3 +182,49 @@ fn test_negative_membrane_potential_fault_injection() {
   println!(""); // empty line
 
 }
+
+/**
+    This test injects a fault in threshold comparator of the first neuron of the second layer.
+    - neuron corresponding to the digit 0
+    - bool resulting from the comparison always true
+
+    Setting the threshold comparator to return always true we expect the neuron to **always fire**
+    - the digit 0 will always be recognized
+    - resulting accuracy = 7.0%
+ */
+#[test]
+fn test_positive_threshold_comparator_fault_injection() {
+
+  let n = network_setup_from_file();
+  let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
+
+  // MANUAL FAULT INJECTION
+  //***************************************************************************
+  let fault_type: FaultType = FaultType::StuckAt1;
+  let time_step: Option<u64> = None;
+  let layer_index: usize = 1;
+  let component_category: ComponentCategory = ComponentCategory::InternalProcessingBlock;
+  let component_type: ComponentType = ComponentType::ThresholdComparator;
+  let component_index: usize = 0;
+  let bit_index: Option<usize> = None;
+  //***************************************************************************
+  let fault = InjectedFault::new(fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
+
+  // PROCESSING WITH FAULT INJECTION
+  let mut vec_max = Vec::new();
+  for input_spikes in input_spike_train.iter() {
+      let output_spikes = snn.process_input(&input_spikes, Some(fault));
+      let max = compute_max_output_spike(output_spikes);
+      vec_max.push(max);
+  }
+  let acc = compute_accuracy(vec_max, &targets);
+  println!("Accuracy = {}%", acc);
+
+  // PRINT RESULTS
+  println!(""); // empty line
+  println!("Injected fault info:");
+  println!("{:?}", fault);
+  println!("Resulting accuracy = {}%", acc);
+  println!(""); // empty line
+
+}
