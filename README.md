@@ -31,6 +31,7 @@ based on the MNIST dataset and the labels used to compute the accuracy
 pub trait Neuron {
     fn process_input(&mut self, time: u64, weighted_sum: f64, fault: Option<InjectedFault>) -> u8;
     fn initialize(&mut self);
+    fn get_parameter_to_fault(&mut self, component_type: ComponentType) -> &mut f64;
 }
 ```
 - `Lif` is the struct that describes the parameters of a Leaky Integrate-and-Fire neuron
@@ -68,9 +69,9 @@ pub struct SpikeEvent {
 2. **Listening to Spike Events**: The method continuously listens for incoming spike events from 
 the previous layer through the **`layer_input_rc`** receiver channel.
 3. **Processing Spike Events**: For each received **`input_spike_event`**, the method:
-  - Saves the corresponding time instant
-  - Calculates the weighted input sum for each neuron and triggers the computation of the membrane potential
-  - Adds the resulting neuron output to the output vector
+   - Saves the corresponding time instant
+   - Calculates the weighted input sum for each neuron and triggers the computation of the membrane potential
+   - Adds the resulting neuron output to the output vector
 4. **Propagation of Output Spikes**: If at least one neuron fired, it proceeds to send the computed 
 Spike Event to the next layer through the **`layer_output_tx`** sender channel.
 5. **Saving Output Spikes**: The computed **`output_spikes`** are saved in the **`prev_output_spikes`** 
@@ -102,8 +103,8 @@ The input spike matrix is converted into a vector of Spike Events
 ```rust
 fn process_input_spike_events(&self, input_spike_events: Vec<SpikeEvent>) -> Vec<SpikeEvent>
 ```
-Steps:
-1. **create the first channel**: create the initial input channel to feed the network.
+The method follows these steps:
+1. create the first channel: create the initial input channel to feed the network.
 2. `create_and_spawn_threads`: For each layer, clone its Arc pointer, create an additional channel 
 to the next layer, create a new thread that starts the layer processing.
 3. `send_input_spike_events`: Send the input spike events to the first layer through the input channel.
@@ -131,6 +132,13 @@ pub struct BuilderParameters<N: Neuron> {
     num_layers: usize,                  // number of layers
 }
 ```
+`SNNBuilder` is a struct that allows the user to specify all the parameters needed to construct the SNN object layer by layer,
+providing methods such as: `new`, `add_layer`, `build`.
+```rust
+pub struct SNNBuilder<N: Neuron> {
+    parameters: BuilderParameters<N>
+}
+```
 
 ## Configuration file
 The configuration file `config.toml` contains parameters and settings for building a neural network 
@@ -156,7 +164,7 @@ pub struct NetworkSetup {
 }
 ```
 
-TO_DO
+#to_do
 
 
 ## Tool interface
@@ -179,15 +187,16 @@ pub struct Steps {
 }
 ```
 `Step` is defined as an enum. Each element contains a struct composed by the variables that are required at that step.
-
 Each step is associated with a method that returns a Column (i.e., a container that distributes its contents vertically). 
 
-The following objects of the crate has been used: `text`, `text_input`, `radio`, `checkbox`.
+The following objects of the crate has been used: `text`, `text_input`, `radio`, `checkbox`, `image`.
 
-TO_DO
+#to_do
 
 ## Resilience analysis
-- `InjectedFault` is a struct representing a fault occurrence with its properties
+For the resilience analysis only single-bit faults have been considered (stuck-at-0, stuck-at-1, transient-bit-flip).
+
+`InjectedFault` is a struct representing a fault occurrence with its properties
 ```rust
 pub struct InjectedFault {
     // FAULT PROPERTIES
@@ -201,7 +210,30 @@ pub struct InjectedFault {
     pub bit_index: Option<usize>,               // Bit index of the component in which the fault must be injected (not for threshold comparators)
 }
 ```
-- `UserSelection` is a struct to hold the fault injection parameters defined by the user
+`ComponentType` is an enum that contains the components of the network in which a fault can be introduced
+```rust
+pub enum ComponentType {
+    // Connections between neurons
+    Extra,
+    Intra,
+    // LIF Memory areas
+    ResetPotential,
+    RestingPotential,
+    Threshold,
+    MembranePotential,
+    Tau,
+    Ts,
+    // Internal processing blocks
+    Adder,
+    Multiplier,
+    ThresholdComparator,
+}
+```
+
+The following functions are used to modify the selected bit 
+
+A graphic interface has been created for the user to provide the properties of the fault to insert in the network.
+`UserSelection` is a struct to hold the fault injection parameters defined by the user
 ```rust
 pub struct UserSelection {
     pub components: Vec<ComponentType>,
@@ -210,6 +242,19 @@ pub struct UserSelection {
     pub input_sequence: Vec<Vec<Vec<u8>>>,
 }
 ```
+Given the user selection, the following function select a random bit index from the components selected and runs the simulation of the SNN with the injected fault.
+It returns a vector of tuples containing: the accuracy of the SNN with the injected faults, all the information about the injected fault.
+```rust
+pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>, no_faults_accuracy: f64) -> Vec<(f64,InjectedFault)>
+```
+We distinguished between static and dynamic components. If the fault is introduced in a static component, we change the value from the beginning of the simulation, otherwise we modify it only when required.
+Furthermore, if the fault introduced have no effect in the value (for stuck-at-1 and stuck-at-0), the simulation is not run and the accuracy without faults is returned.
 
+
+The accuracy is computed with the following function:
+```rust
+pub fn compute_accuracy(vec_max: Vec<u8>, targets: &Vec<u8>) -> f64
+```
+It compares each target with the index of the maximum of the output spike train's sums.
 
 ## Usage example
