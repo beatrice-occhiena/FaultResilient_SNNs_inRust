@@ -60,12 +60,6 @@ impl Tour {
             }
         }
 
-        /* print the user selection components, fault type and number of faults
-        println!("User selection components: {:?}", v);
-        println!("User selection fault type: {:?}", fault);
-        println!("User selection number of faults: {:?}", num_faults);
-        */
-
         // Return the user selection
         UserSelection::new(v, fault, num_faults,input_spike_train)
     }
@@ -114,7 +108,7 @@ impl Tour {
             x_values.push(i as i32);
         }
 
-        let root = BitMapBackend::new("plotters-doc-data/graph.png", (1024, 768)).into_drawing_area();
+        let root = BitMapBackend::new("plotters-data/graph.png", (1024, 768)).into_drawing_area();
 
         root.fill(&WHITE)?;
 
@@ -142,7 +136,7 @@ impl Tour {
             .point_size(5)).unwrap();
 
         // To avoid the IO failure being ignored silently, we manually call the present function
-        root.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
+        root.present().expect("Unable to write result to file, please make sure 'plotters-data' dir exists under current dir");
 
         Ok(())
     }
@@ -323,6 +317,41 @@ impl Application for Tour {
                 Command::none()
             },
             Message::RestartPressed => {
+                // Delete components
+                let s = &mut self.steps.steps[4];
+                match s {
+                    Step::Components { ref mut intra, ref mut extra, ref mut reset,ref mut resting, ref mut threshold, ref mut vmem, ref mut tau, ref mut ts, ref mut adder, ref mut multiplier, ref mut comparator} => {
+                        *intra = false;
+                        *extra = false;
+                        *reset = false;
+                        *resting = false;
+                        *threshold = false;
+                        *vmem = false;
+                        *tau = false;
+                        *ts = false;
+                        *adder = false;
+                        *multiplier = false;
+                        *comparator = false;
+                    },
+                    _ => {}
+                };
+                // Delete fault selection
+                let s = &mut self.steps.steps[5];
+                match s {
+                    Step::FaultType {ref mut selection} => {
+                        *selection = None
+                    },
+                    _ => {}
+                }
+                // Delete number of faults
+                let s = &mut self.steps.steps[6];
+                match s {
+                    Step::NumFaults {ref mut value} => {
+                        *value = String::new()
+                    },
+                    _ => {}
+                }
+
                 self.steps.restart();
 
                 Command::none()
@@ -382,8 +411,6 @@ impl Application for Tour {
 
         container(scrollable).height(Length::Fill).center_y().into()
     }
-
-    //fn theme(&self) -> Self::Theme { Theme::Dark }
 }
 
 #[derive(Debug, Clone)]
@@ -1044,23 +1071,21 @@ impl<'a> Step {
     }
 
     fn simulation(a_inj: Vec<(f64, InjectedFault)>) -> Column<'a, StepMessage> { //OK
-        let mut q = Vec::new();
+        let mut questions = Vec::new();
         for ai in a_inj {
-            let l = ai.1.layer_index;
-            let question = column![text(format!("{:?}\nThe accuracy with this fault is: {} %", ai.1, ai.0)).size(20)];
-            q.push((question, l));
+            let question = column![text(format!("{}The accuracy with this fault is: {} %", ai.1, ai.0)).size(20)];
+            questions.push(question);
         }
-        let mut c = Self::container("Simulation finished");
-        for a in q {
-            c = c.push(a.0);
+        let mut container = Self::container("Simulation finished");
+        for question in questions {
+            container = container.push(question);
         }
-        c = c.push("Please click Next to select a configuration", );
-        c
+        container
     }
     
     fn image() -> Column<'a, StepMessage> {
         Self::container("Accuracy graphic")
-            .push(image("plotters-doc-data/graph.png").width(900))
+            .push(image("plotters-data/graph.png").width(900))
             .push("Please click Next to see the details of the simulation")
     }
 
