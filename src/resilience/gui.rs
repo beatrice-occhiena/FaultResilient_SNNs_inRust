@@ -1074,10 +1074,10 @@ impl<'a> Step {
     fn simulation(a_inj: Vec<(f64, InjectedFault)>) -> Column<'a, StepMessage> { //OK
         let mut questions = Vec::new();
         for ai in a_inj {
-            let question = column![text(format!("{:?} The accuracy with this fault is: {} %", ai.1, ai.0)).size(20)];
+            let question = column![text(format!("{} The accuracy with this fault is: {} %", ai.1, ai.0)).size(20)];
             questions.push(question);
         }
-        let mut container = Self::container("Simulation finished");
+        let mut container = Self::container("Fault Injection Log");
         for question in questions {
             container = container.push(question);
         }
@@ -1087,13 +1087,13 @@ impl<'a> Step {
     fn image() -> Column<'a, StepMessage> {
         Self::container("Accuracy graphic")
             .push(image("plotters-data/graph.png").width(900))
-            .push("Please click Next to see the details of the simulation")
+            .push("Please click Next to see the details of each injected fault", )
     }
 
     fn end() -> Column<'a, StepMessage> {
         Self::container("You reached the end!")
             .push("Thank you for using our tool.")
-            .push("Please click Restart if you want test other kind of faults on your already built network.", )
+            .push("Please click Restart if you want test other kinds of faults on your already built network.", )
     }
 }
 
