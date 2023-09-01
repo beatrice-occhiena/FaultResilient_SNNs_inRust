@@ -230,8 +230,6 @@ pub enum ComponentType {
 }
 ```
 
-The following functions are used to modify the selected bit 
-
 A graphic interface has been created for the user to provide the properties of the fault to insert in the network.
 `UserSelection` is a struct to hold the fault injection parameters defined by the user
 ```rust

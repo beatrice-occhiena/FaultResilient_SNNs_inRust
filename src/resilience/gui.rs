@@ -8,7 +8,7 @@ use iced::{Element, Length, Settings, Command};
 use crate::network::config::{build_network_from_setup, compute_accuracy, compute_max_output_spike, network_setup_from_file};
 use crate::network::neuron::lif::Lif;
 use crate::network::snn::SNN;
-use crate::resilience::components::ComponentType;
+use crate::resilience::components::{ComponentCategory, ComponentType};
 use crate::resilience::fault_models::{FaultType, InjectedFault};
 use crate::resilience::simulation::UserSelection;
 use plotters::prelude::*;
@@ -90,7 +90,6 @@ impl Tour {
     fn graphic(&self) -> Result<(), Box<dyn Error>> {
         let mut num_faults= 0;
         let mut a_f = Vec::new();
-        // For each step of the GUI, we check what the user has selected
         for i in 1..self.steps.steps.len() {
             match self.steps.steps.get(i).unwrap() {
                 Step::NumFaults {value} => {
@@ -103,41 +102,43 @@ impl Tour {
             }
         }
 
+        // Building x-axes values (number of faults)
         let mut x_values = Vec::new();
         for i in 0..num_faults {
             x_values.push(i as i32);
         }
 
+        // Creating a new drawing area
         let root = BitMapBackend::new("plotters-data/graph.png", (1024, 768)).into_drawing_area();
-
+        // Filling the drawing area with WHITE color
         root.fill(&WHITE)?;
 
+        // Building the chart with a 2D Cartesian coordinate system
         let n = (num_faults-1) as i32;
-
         let mut chart = ChartBuilder::on(&root)
-            .x_label_area_size(35)
+            .x_label_area_size(40)
             .y_label_area_size(40)
             .margin(5)
             .caption("Accuracy with faults", ("sans-serif", 50))
-            .build_cartesian_2d(0..n, 0..100)?;
+            .build_cartesian_2d(0..n, 0..100)?; // specify how the axis are segmented
 
         chart
-            .configure_mesh()
+            .configure_mesh() // add the grid in the graphic
             .y_desc("Accuracy (%)")
             .x_desc("Fault number")
             .axis_desc_style(("sans-serif", 15))
             .draw()?;
 
         let mut v = Vec::new();
+        // Building the points (tuples) to draw in the graphic
         for i in 0..num_faults {
             v.push((x_values[i as usize] as i32, a_f[i as usize].0 as i32));
         }
+        // Draw the points in the graphic connected by a line
         chart.draw_series(LineSeries::new(v.iter().map(|(i,j)| (*i, *j)), RED.filled())
             .point_size(5)).unwrap();
 
-        // To avoid the IO failure being ignored silently, we manually call the present function
         root.present().expect("Unable to write result to file, please make sure 'plotters-data' dir exists under current dir");
-
         Ok(())
     }
 }
@@ -1127,6 +1128,16 @@ impl From<FaultType> for String {
             FaultType::StuckAt0 => "Stuck-at-0",
             FaultType::StuckAt1 => "Stuck-at-1",
             FaultType::TransientBitFlip => "Transient bit flip",
+        })
+    }
+}
+
+impl From<ComponentCategory> for String {
+    fn from(component: ComponentCategory) -> String {
+        String::from(match component {
+            ComponentCategory::MemoryArea => "Memory area",
+            ComponentCategory::Connection => "Connection",
+            ComponentCategory::InternalProcessingBlock => "Internal processing block",
         })
     }
 }
