@@ -70,27 +70,7 @@ fn test_snn_layers() {
     assert_eq!(snn.get_layers().get(1).unwrap().lock().unwrap().get_neurons().len(), 1);
     assert_eq!(snn.get_layers().get(0).unwrap().lock().unwrap().get_extra_weights().len(), 2);
 }
-/*
-#[test]
-#[should_panic]
-fn test_negative_extra_weights() { // this test should panic
-    SNNBuilder::new(3)
-        .add_layer(vec![
-            Lif::new(0.1, 0.05, 0.3, 1.0),
-            Lif::new(0.1, 0.05, 0.3, 1.0)], vec![
-            vec![-0.1, 0.2, 0.3], // negative extra-weight
-            vec![0.4, 0.5, 0.6]], vec![
-            vec![0.0, -0.2],
-            vec![-0.9, 0.0]
-        ])
-        .add_layer(vec![
-            Lif::new(0.1, 0.05, 0.3, 1.0),
-        ], vec![
-            vec![0.2, 0.3]], vec![
-            vec![0.0]
-        ]);
-}
-*/
+
 #[test]
 #[should_panic]
 fn test_positive_intra_weights() { // this test should panic
@@ -194,8 +174,7 @@ fn test_process_snn_one_layer() {
         .build();
 
     let output_spikes = snn.process_input(&vec![vec![1,0,1],vec![0,0,1]], None);
-    //let output_expected: Vec<Vec<u8>> = vec![vec![0,0,0],vec![1,0,1],vec![1,0,1]];
-    let output_expected: Vec<Vec<u8>> = vec![vec![0,0,0],vec![0,0,1],vec![1,0,1]];
+    let output_expected: Vec<Vec<u8>> = vec![vec![0,0,0],vec![1,0,1],vec![1,0,1]];
     assert_eq!(output_spikes, output_expected);
 }
 
@@ -230,8 +209,7 @@ fn test_process_snn_with_more_layers() {
         .build();
 
     let output_spikes = snn.process_input(&vec![vec![1,0,1,0],vec![0,0,1,1]], None);
-    //let output_expected: Vec<Vec<u8>> = vec![vec![1,0,1,1]];
-    let output_expected: Vec<Vec<u8>> = vec![vec![0,0,1,1]];
+    let output_expected: Vec<Vec<u8>> = vec![vec![1,0,1,1]];
 
     assert_eq!(output_spikes, output_expected);
 }
