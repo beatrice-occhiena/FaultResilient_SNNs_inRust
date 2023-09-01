@@ -102,6 +102,9 @@ impl Tour {
             }
         }
 
+        // Calculate the average accuracy
+        let average_accuracy: f64 = a_f.iter().map(|(acc, _)| *acc).sum::<f64>() / num_faults as f64;
+
         // Building x-axes values (number of faults)
         let mut x_values = Vec::new();
         for i in 0..num_faults {
@@ -137,6 +140,12 @@ impl Tour {
         // Draw the points in the graphic connected by a line
         chart.draw_series(LineSeries::new(v.iter().map(|(i,j)| (*i, *j)), RED.filled())
             .point_size(5)).unwrap();
+
+        // Add a horizontal line for average accuracy
+        chart.draw_series(LineSeries::new(
+            vec![(0, average_accuracy as i32), (n, average_accuracy as i32)],
+            BLUE.stroke_width(2),
+        ))?;
 
         root.present().expect("Unable to write result to file, please make sure 'plotters-data' dir exists under current dir");
         Ok(())
@@ -213,10 +222,15 @@ impl Application for Tour {
                 if self.steps.is_image() {
                     let (user_selection, targets, snn, accuracy) = self.get_arguments_for_simulation();
                     let v = snn.run_simulation(user_selection, targets, accuracy);
+
+                    // Calculate the average accuracy
+                    let average_accuracy: f64 = v.iter().map(|(acc, _)| *acc).sum::<f64>() / v.len() as f64;
+
                     let s = &mut self.steps.steps[8];
                     match s {
-                        Step::Image {ref mut a_inj} => {
+                        Step::Image {ref mut a_inj, ref mut avg_acc} => {
                             *a_inj = v.clone();
+                            *avg_acc = average_accuracy;
                         }
                         _ => {}
                     }
@@ -462,7 +476,8 @@ impl Steps {
                     input_sequence: vec![],
                 }},
                 Step::Image {
-                    a_inj: Vec::new()
+                    a_inj: Vec::new(),
+                    avg_acc: 0.0
                 },
                 Step::Simulation {
                     a_inj: Vec::new()
@@ -575,7 +590,8 @@ enum Step {
         a_inj: Vec<(f64, InjectedFault)>
     },
     Image {
-        a_inj: Vec<(f64, InjectedFault)>
+        a_inj: Vec<(f64, InjectedFault)>,
+        avg_acc: f64
     },
     End,
 }
@@ -804,7 +820,7 @@ impl<'a> Step {
                 Self::choices(c)
             },
             Step::Simulation {a_inj} => Self::simulation((*a_inj).clone()),
-            Step::Image { .. } => Self::image(),
+            Step::Image {avg_acc, ..} => Self::image(avg_acc),
             Step::End {} => Self::end(),
         }
             .into()
@@ -1084,9 +1100,10 @@ impl<'a> Step {
         container
     }
     
-    fn image() -> Column<'a, StepMessage> {
+    fn image(avg_acc: &f64) -> Column<'a, StepMessage> {
         Self::container("Accuracy graphic")
             .push(image("plotters-data/graph.png").width(900))
+            .push(text(format!("Average accuracy: {:.1} %", avg_acc)))
             .push("Please click Next to see the details of each injected fault", )
     }
 
