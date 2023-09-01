@@ -62,12 +62,20 @@ impl Neuron for Lif {
         }
 
         // Compute the membrane potential at the time instant t
-        // and check if the neuron spikes
         let mut output_spike: u8;
         let dt = (time - ts) as f64; // time interval between two input spikes
         let exponential = (-dt/tau) as f64;
-        self.membrane_potential = resting_potential + (membrane_potential - resting_potential) * exponential.exp() + weighted_sum;
+        let mp = resting_potential + (membrane_potential - resting_potential) * exponential.exp() + weighted_sum;
+
+        // update the variables to be stored each step in the memory areas
+        if fault.is_some() && fault.unwrap().component_type == ComponentType::MembranePotential{
+            self.membrane_potential = fault.unwrap().apply_fault(mp, time);
+        }else{
+            self.membrane_potential = mp;
+        }
         self.ts = time;
+
+        // Check if the neuron spikes
         if self.membrane_potential > threshold {
             self.membrane_potential = reset_potential;
             output_spike = 1; // spike only if v_mem > v_th
@@ -89,7 +97,7 @@ impl Neuron for Lif {
     
     // Reset the membrane potential to the resting potential and the time instant to 0
     fn initialize(&mut self) {
-        self.membrane_potential = 0.0;
+        self.membrane_potential = self.resting_potential;
         self.ts = 0;
     }
 

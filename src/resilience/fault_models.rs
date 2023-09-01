@@ -64,7 +64,7 @@ impl ApplyFault<f64> for InjectedFault {
     fn apply_fault(&self, var: f64, timestamp: u64) -> f64 {
 
         // #to_do print
-        println!("{:?}", var);
+        //println!("{:?}", var);
 
         // Convert f64 to u64 to get access to its representation in bits
         let mut var_in_bits = var.to_bits();
@@ -85,7 +85,7 @@ impl ApplyFault<f64> for InjectedFault {
         let new_var = f64::from_bits(var_in_bits);
 
         // #to_do print
-        println!("{:?}", new_var);
+        //println!("{:?}", new_var);
 
         new_var
     }

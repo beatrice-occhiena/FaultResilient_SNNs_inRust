@@ -1073,7 +1073,7 @@ impl<'a> Step {
     fn simulation(a_inj: Vec<(f64, InjectedFault)>) -> Column<'a, StepMessage> { //OK
         let mut questions = Vec::new();
         for ai in a_inj {
-            let question = column![text(format!("{}The accuracy with this fault is: {} %", ai.1, ai.0)).size(20)];
+            let question = column![text(format!("{:?} The accuracy with this fault is: {} %", ai.1, ai.0)).size(20)];
             questions.push(question);
         }
         let mut container = Self::container("Simulation finished");
