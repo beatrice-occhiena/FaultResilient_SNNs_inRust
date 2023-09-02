@@ -102,7 +102,7 @@ fn test_positive_threshold_fault_injection() {
 This test injects a fault in the quantization parameter dt of the second neuron of the second layer.
 - neuron corresponding to the digit 1
 - bit at index 62 from 0 to 1
-- threshold from 1.0 to infinity
+- dt from 1.0 to infinity
 
 Increasing dt above infinity we expect the neuron to **never fire**
 - the digit 1 will never be recognized
