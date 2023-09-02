@@ -1,13 +1,11 @@
 # Spiking Neural Networks and resilience
 
 ## Description
-The goal of this project is to create the interface of a Spiking Neural Network 
-and analyze its resilience considering single bit faults.
+The objective of this project is to develop a tool that constructs and evaluates the resilience of a Spiking Neural Network, taking into account single bit faults.
 
-The training phase of the network has not been carried out, 
-assuming that the trained hyperparameters are already available.
+The training phase of the network is not included, assuming that the trained hyperparameters are available.
 
-The project has been realized for the course "Programmazione di sistema" of Politecnico di Torino, a.y. 2022-2023.
+This project was completed as part of the "System Programming" course at Politecnico di Torino for the academic year 2022-2023.
 
 ## Group members
 - Beatrice Occhiena
@@ -19,10 +17,9 @@ The repository is structured as follows:
   - `network/` contains the SNN generic implementation
     - `event` contains the spike event definition
     - `neuron` contains the generic neuron trait definition and the Lif neuron implementation
-  - `resilience/` contains the SNN resilience implementation
-- `tests/` contains the tests for the library without any fault
-- `simulation/` contains the Python files that trains the network weights, the input spike trains 
-based on the MNIST dataset and the labels used to compute the accuracy
+  - `resilience/` contains the SNN resilience analysis implementation
+- `tests/` contains the tests for the SNN implementation and a list of manually injected fault for the resilience analysis
+- `simulation/` contains the Python files that trains the network weights, the input spike trains based on the MNIST dataset and the labels used to compute the accuracy
 
 ## Network architecture
 ### Neuron
@@ -48,7 +45,7 @@ pub struct Lif {
 ```
 
 ### Layer
-- `Layer` is a struct that represents a layer of neurons
+- `Layer` is the struct that represents a layer of neurons in the network
 ```rust
 pub struct Layer<N> where N: Neuron + Clone + Send + 'static {
     neurons: Vec<N>,                // neurons in a layer
@@ -125,7 +122,7 @@ pub struct SNNBuilder<N: Neuron> {
 ## Configuration file
 The configuration file `config.toml` contains parameters and settings for building a neural network 
 with specific characteristics. It includes details about the network architecture, neuron configurations, 
-weight files, input spike trains, and output file locations.
+weight files and input spike trains.
 - `NetworkSetup` is a struct that holds parsed network configuration parameters based on `config.toml` file
 ```rust
 pub struct NetworkSetup {
@@ -149,10 +146,11 @@ pub struct NetworkSetup {
 
 
 ## Tool interface
-`Iced` framework for Rust has been used to realize an interface for the user to select the properties 
-of the faults to inject and study the resilience of the Spiking Neural Network.
+`Iced` framework for Rust has been used to create an interface through which the user can configure the network's parameters, select the properties of the fault to inject and view the results of the resilience analysis in a graphical way.
 
-The trait `Application` is the main entrypoint of Iced. Once implemented, the GUI application can be run by simply calling run.
+![alt text](img1.png)
+
+The trait `Application` is the main entrypoint of Iced. Once implemented, it can be run on any platform supported by Iced.
 
 The trait requires 4 methods: 
 - `new` initializes the Application with the flags provided to run as part of the Settings
@@ -167,10 +165,10 @@ pub struct Steps {
   current: usize,
 }
 ```
-`Step` is defined as an enum. Each element contains a struct composed by the variables that are required at that step.
-Each step is associated with a method that defines the container that is displayed. 
+`Step` is defined as an enum. Each element includes a structure with the necessary variables for that particular step.
+Each step is associated with a method that defines the widgets to be displayed.
 
-The following objects of the crate has been used: `text`, `text_input`, `radio`, `checkbox`, `image`.
+These are the objects used to create the widgets that are displayed in the interface: `text`, `text_input`, `radio`, `checkbox`, `image`.
 
 
 ## Resilience analysis
@@ -210,15 +208,14 @@ pub enum ComponentType {
     ThresholdComparator,
 }
 ```
-The following trait defines the generic function that allows to apply a fault in a bit of the selected variable. The trait is implemented for f64, u64 and u8.
+The following trait defines the generic function that allows to apply a fault in a specific bit of the selected variable. The trait is currently implemented for f64, u64 and u8.
 ```rust
 pub trait ApplyFault<T> {
     fn apply_fault(&self, var: T, timestamp: u64) -> T;
 }
 ```
 
-A graphic interface has been created for the user to provide the properties of the fault to insert in the network.
-`UserSelection` is a struct to hold the fault injection parameters defined by the user
+`UserSelection` is a struct to hold the fault injection parameters defined by the user through the GUI
 ```rust
 pub struct UserSelection {
     pub components: Vec<ComponentType>,
@@ -227,20 +224,19 @@ pub struct UserSelection {
     pub input_sequence: Vec<Vec<Vec<u8>>>,
 }
 ```
-Given the user selection, the following function select a random bit index from the components selected and runs the simulation of the SNN with the injected fault.
-It returns a vector of tuples containing: the accuracy of the SNN with the injected faults and all the information about the injected fault.
+Given the user selection, the following function randomly selects a bit index from the list of all the considered components and runs the simulation of the SNN with the fault injected.
+It returns a vector of tuples containing: the resulting accuracy of the SNN with the injected fault and all the information about the fault itself.
 ```rust
 pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>, no_faults_accuracy: f64) -> Vec<(f64,InjectedFault)>
 ```
 
-The accuracy is computed with the following function:
+The accuracy is computed with the following function that sums the spikes over time and compares the digit associated with the neuron with the highest number of spikes with the target.
 ```rust
 pub fn compute_accuracy(vec_max: Vec<u8>, targets: &Vec<u8>) -> f64
 ```
-It sums the spikes over time and compare the neuron with the highest number of spikes with the target.
 
-## Usage example
-This is an example of test to test the network without faults:
+## Test example
+This is an example of test to simulate the network without faults:
 ```rust
 fn test_process_snn_with_more_layers() {
     let snn = SNNBuilder::new(2)
