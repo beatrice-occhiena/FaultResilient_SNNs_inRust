@@ -200,10 +200,15 @@ pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>
     }
     vec_extra_weights.push(get_extra_weights(rem_first_and_last(n.extra_weights.get(n.extra_weights.len() - 1).unwrap().as_str()), *layers_dim.get(layers_dim.len() - 2).unwrap(), n.output_length));
 
-    // Building intra_weights -> DA RIFARE
+    // Building intra_weights
     let mut vec_intra_weights = Vec::new();
-    for l in layers_dim.iter() {
-        vec_intra_weights.push(get_intra_weights(*l));
+    for (i,layer_dim) in layers_dim.iter().enumerate() {
+        if n.intra_weights.get(i).is_some() {
+            vec_intra_weights.push(get_intra_weights(*layer_dim, rem_first_and_last(n.intra_weights.get(i).unwrap().as_str())));
+        }
+        else {
+            vec_intra_weights.push(get_intra_weights(*layer_dim, ""));
+        }
     }
 
     //Building the SNN
@@ -233,7 +238,7 @@ fn get_neurons(num_neurons: usize, reset_potential: f64, resting_potential: f64,
 
 fn get_extra_weights(filename: &str, input_length: usize, num_neurons: usize) -> Vec<Vec<f64>> {
     // Opening the file
-    let f = File::open(filename).expect("Error: The weight file doesn't exist");
+    let f = File::open(filename).expect("Error: The extra weight file doesn't exist");
     // Initialize the matrix of weights to all zeros
     let mut extra_weights = vec![vec![0f64; input_length]; num_neurons];
     // Reading the file by lines
@@ -251,14 +256,33 @@ fn get_extra_weights(filename: &str, input_length: usize, num_neurons: usize) ->
     extra_weights
 }
 
-fn get_intra_weights(num_neurons: usize) -> Vec<Vec<f64>> {
-    // The intra weights are not stored in a file but are all set to the value 0.0
-    let w = 0.0;
+fn get_intra_weights(num_neurons: usize, filename: &str) -> Vec<Vec<f64>> {
     let mut intra_weights = vec![vec![0f64; num_neurons]; num_neurons];
-    for i in 0..num_neurons {
-        for j in 0..num_neurons {
-            if i != j {
-                intra_weights[i][j] = w;
+    if filename.eq("") { // The intra weights are not stored in a file but are all set to the value 0.0
+        let w = 0.0;
+        for i in 0..num_neurons {
+            for j in 0..num_neurons {
+                if i != j {
+                    intra_weights[i][j] = w;
+                }
+            }
+        }
+    }
+    else { // The intra weights are stored in a file
+        // Opening the file
+        let f = File::open(filename).expect("Error: The intra weight file doesn't exist");
+        // Reading the file by lines
+        let reader = BufReader::new(f);
+        for (i,line) in reader.lines().enumerate() {
+            // Each line is a String -> I have to split it and convert to f64
+            let mut j = 0;
+            for w in line.unwrap().split(" ") {
+                if w != "" {
+                    if i != j {
+                        intra_weights[i][j] = w.parse::<f64>().expect("Cannot convert to f64");
+                        j+=1;
+                    }
+                }
             }
         }
     }
