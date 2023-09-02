@@ -27,6 +27,7 @@ pub struct NetworkSetup {
     pub threshold: f64,
     pub beta: f64,
     pub tau: f64,
+    pub dt: f64,
     pub spike_length: usize,
     pub batch_size: usize,
     pub input_spike_train: String,
@@ -34,8 +35,8 @@ pub struct NetworkSetup {
 }
 
 impl NetworkSetup {
-    fn new(input_layer: usize, hidden_layers: Vec<usize>, output_length: usize, extra_weights: Vec<String>, intra_weights: Vec<String>, resting_potential: f64, reset_potential: f64, threshold: f64, beta: f64, tau: f64, spike_length: usize, batch_size: usize, input_spike_train: String, target_file: String) -> Self{
-        NetworkSetup {input_layer, hidden_layers, output_length, extra_weights, intra_weights, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train, target_file}
+    fn new(input_layer: usize, hidden_layers: Vec<usize>, output_length: usize, extra_weights: Vec<String>, intra_weights: Vec<String>, resting_potential: f64, reset_potential: f64, threshold: f64, beta: f64, tau: f64, dt: f64, spike_length: usize, batch_size: usize, input_spike_train: String, target_file: String) -> Self{
+        NetworkSetup {input_layer, hidden_layers, output_length, extra_weights, intra_weights, resting_potential, reset_potential, threshold, beta, tau, dt, spike_length, batch_size, input_spike_train, target_file}
     }
 
     /**
@@ -74,6 +75,7 @@ impl NetworkSetup {
         config["LIF_neuron_parameters"]["reset_potential"] = toml::Value::Float(self.reset_potential as f64);
         config["LIF_neuron_parameters"]["threshold"] = toml::Value::Float(self.threshold as f64);
         config["LIF_neuron_parameters"]["beta"] = toml::Value::Float(self.beta as f64);
+        config["LIF_neuron_parameters"]["dt"] = toml::Value::Float(self.dt as f64);
         // #to_do: fix config["LIF_neuron_parameters"]["tau"] = toml::Value::Float(self.tau as f64);
 
         config["input_spike_train"]["spike_length"] = toml::Value::Integer(self.spike_length as i64);
@@ -147,15 +149,16 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     let resting_potential = lif_params["resting_potential"].as_float().unwrap() as f64;
     let reset_potential = lif_params["reset_potential"].as_float().unwrap() as f64;
     let threshold = lif_params["threshold"].as_float().unwrap() as f64;
+    let dt = lif_params["dt"].as_float().unwrap() as f64;
     let beta;
     let tau;
     if lif_params.contains_key("beta"){
         beta = lif_params["beta"].as_float().unwrap() as f64;
-        tau = (-1.0 / beta.ln()) as f64;
+        tau = (-dt / beta.ln()) as f64;
     }
     else {
         tau = lif_params["tau"].as_float().unwrap() as f64;
-        beta = (-1.0 / tau).exp() as f64;
+        beta = (-dt / tau).exp() as f64;
     }
 
     // INPUT SPIKES PARAMETERS
@@ -166,7 +169,7 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     // TARGET FILE FOR ACCURACY
     let target_file = config["accuracy"]["target_file"].to_string();
 
-    Ok(NetworkSetup::new(input_length.clone(), hidden_layers_length.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone(), target_file.clone()))
+    Ok(NetworkSetup::new(input_length, hidden_layers_length.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential, reset_potential, threshold, beta, tau, dt, spike_length.clone(), batch_size, input_spike_train.clone(), target_file.clone()))
     // Now you can use the extracted parameters to build your SNN and perform operations as needed.
 
 }
@@ -186,7 +189,7 @@ pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>
     // Building neurons
     let mut vec_neurons = Vec::new();
     for l in layers_dim.iter() {
-        vec_neurons.push(get_neurons(*l, n.reset_potential, n.resting_potential, n.threshold, n.tau));
+        vec_neurons.push(get_neurons(*l, n.reset_potential, n.resting_potential, n.threshold, n.tau, n.dt));
     }
 
     // Getting extra_weights from files
@@ -227,11 +230,11 @@ pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>
     (snn, input_spike_train, targets)
 }
 
-fn get_neurons(num_neurons: usize, reset_potential: f64, resting_potential: f64, threshold: f64, tau: f64) -> Vec<Lif> {
+fn get_neurons(num_neurons: usize, reset_potential: f64, resting_potential: f64, threshold: f64, tau: f64, dt: f64) -> Vec<Lif> {
     // Building the vector of Lif with the parameters received as arguments
     let mut neurons = Vec::new();
     for _ in 0..num_neurons {
-        neurons.push(Lif::new(reset_potential, resting_potential, threshold, tau));
+        neurons.push(Lif::new(reset_potential, resting_potential, threshold, tau, dt));
     }
     neurons
 }

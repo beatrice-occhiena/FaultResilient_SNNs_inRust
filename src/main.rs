@@ -1,7 +1,9 @@
 #[allow(unused_imports)]
-use group02::network::config::{build_network_from_setup, compute_accuracy, compute_max_output_spike, network_setup_from_file}; #[allow(unused_imports)]
+use group02::network::config::{build_network_from_setup, compute_accuracy, compute_max_output_spike, network_setup_from_file};
+#[allow(unused_imports)]
 use group02::resilience::components::ComponentType; #[allow(unused_imports)]
-use group02::resilience::fault_models::FaultType; #[allow(unused_imports)]
+use group02::resilience::fault_models::FaultType;
+#[allow(unused_imports)]
 use group02::resilience::gui; #[allow(unused_imports)]
 use group02::resilience::simulation::UserSelection;
 
@@ -13,7 +15,7 @@ fn main() {
 
     // CODE FOR TESTING PURPOSES
     //****************************************************************** 
-    /*
+/*
     let n = network_setup_from_file();
     let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
 
@@ -41,5 +43,6 @@ fn main() {
         println!("Resulting accuracy = {}%", acc);
         println!(""); // empty line
     }
-    */
+
+ */
 }

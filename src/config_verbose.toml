@@ -49,6 +49,7 @@ extra_weights = ["simulation/parameters/weightsFile1.txt", "simulation/parameter
 resting_potential = 0.0
 reset_potential = 0.0
 threshold = 1.0
+dt = 1.0
 beta = 0.9375
 # tau = "none"
 

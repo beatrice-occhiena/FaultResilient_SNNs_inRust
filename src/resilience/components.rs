@@ -1,3 +1,4 @@
+#[warn(non_camel_case_types)]
 
 /** Enum to represent the type of component for verification
  * 
@@ -49,6 +50,7 @@ pub enum ComponentType {
   MembranePotential,
   Tau,
   Ts,
+  DT,
   // Internal processing blocks
   Adder,
   Multiplier,
@@ -81,7 +83,8 @@ impl ComponentType{
       ComponentType::ResetPotential |
       ComponentType::RestingPotential |
       ComponentType::Threshold |
-      ComponentType::Tau => true,
+      ComponentType::Tau |
+      ComponentType::DT => true,
       _ => false,
     }
   }

@@ -10,18 +10,20 @@ pub struct Lif {
     threshold: f64, // threshold potential
     membrane_potential: f64, // membrane potential
     tau: f64, // time constant
-    ts: u64 // last time instant where a spike has been received
+    ts: u64, // last time instant where a spike has been received
+    dt: f64
 }
 
 impl Lif {
-    pub fn new(reset_potential: f64, resting_potential: f64, threshold: f64, tau: f64) -> Self {
+    pub fn new(reset_potential: f64, resting_potential: f64, threshold: f64, tau: f64, dt: f64) -> Self {
         Lif {
             reset_potential,
             resting_potential,
             threshold,
             membrane_potential: resting_potential, // at the beginning the membrane potential is equal to the resting potential
             tau,
-            ts: 0 // starting from time instant 0
+            ts: 0, // starting from time instant 0
+            dt
         }
     }
 
@@ -52,7 +54,7 @@ impl Neuron for Lif {
         // Get the parameters of the neuron checking during runtime if there is a fault to inject
         // => In this way we are not soiling the original values of the built network with the fault,
         //    since it's sufficient to inject the fault only when the neuron is processed
-        let (reset_potential,resting_potential, threshold, membrane_potential, tau, ts)
+        let (reset_potential,resting_potential, threshold, membrane_potential, tau, dt, ts)
             = self.read_memory_areas(fault, time);
 
         // Possible fault in the adder/multiplier
@@ -63,14 +65,14 @@ impl Neuron for Lif {
 
         // Compute the membrane potential at the time instant t
         let mut output_spike: u8;
-        let dt = (time - ts) as f64; // time interval between two input spikes
-        let exponential = (-dt/tau) as f64;
+        let delta_t = ((time - ts) as f64) * dt; // time interval between two input spikes
+        let exponential = (-delta_t/tau) as f64;
         let mp = resting_potential + (membrane_potential - resting_potential) * exponential.exp() + weighted_sum;
 
         // update the variables to be stored each step in the memory areas
         if fault.is_some() && fault.unwrap().component_type == ComponentType::MembranePotential{
             self.membrane_potential = fault.unwrap().apply_fault(mp, time);
-        }else{
+        } else {
             self.membrane_potential = mp;
         }
         self.ts = time;
@@ -109,6 +111,7 @@ impl Neuron for Lif {
             ComponentType::Threshold            => &mut self.threshold,
             ComponentType::MembranePotential    => &mut self.membrane_potential,
             ComponentType::Tau                  => &mut self.tau,
+            ComponentType::DT                   => &mut self.dt,
             //ComponentType::Ts                   => &mut self.ts,
             _                                   => panic!("Error: the component type is not valid for the LIF neuron"),
         }   
@@ -117,7 +120,7 @@ impl Neuron for Lif {
 }
 
 impl Lif {
-    fn read_memory_areas(&mut self, fault: Option<InjectedFault>, time: u64) -> (f64, f64, f64, f64, f64, u64) {
+    fn read_memory_areas(&mut self, fault: Option<InjectedFault>, time: u64) -> (f64, f64, f64, f64, f64, f64, u64) {
         // Get the parameters of the neuron
         // => In this way we are not soiling the original values of the built network with the fault,
         //    since it's sufficient to inject the fault only when the neuron is processed
@@ -127,6 +130,7 @@ impl Lif {
         let mut membrane_potential = self.membrane_potential;
         let mut tau = self.tau;
         let mut ts = self.ts;
+        let mut dt = self.dt;
     
         if let Some(injected_fault) = fault {
             if injected_fault.component_category == ComponentCategory::MemoryArea {
@@ -137,11 +141,12 @@ impl Lif {
                     ComponentType::MembranePotential    => membrane_potential = injected_fault.apply_fault(membrane_potential, time),
                     ComponentType::Tau                  => tau = injected_fault.apply_fault(tau, time),
                     ComponentType::Ts                   => ts = injected_fault.apply_fault(ts, time),
+                    ComponentType::DT                   => dt = injected_fault.apply_fault(dt, time),
                     _                                   => {}
                 }
             }
         }
-        (reset_potential, resting_potential, threshold, membrane_potential, tau, ts)
+        (reset_potential, resting_potential, threshold, membrane_potential, tau, dt, ts)
     }
 }
 
@@ -154,6 +159,7 @@ impl Clone for Lif {
             membrane_potential: self.membrane_potential,
             tau: self.tau,
             ts: self.ts,
+            dt: self.dt
         }
     }
 }
