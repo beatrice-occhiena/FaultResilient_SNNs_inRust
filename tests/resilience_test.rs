@@ -99,6 +99,52 @@ fn test_positive_threshold_fault_injection() {
 }
 
 /**
+This test injects a fault in the quantization parameter dt of the second neuron of the second layer.
+- neuron corresponding to the digit 1
+- bit at index 62 from 0 to 1
+- threshold from 1.0 to infinity
+
+Increasing dt above infinity we expect the neuron to **never fire**
+- the digit 1 will never be recognized
+- resulting accuracy = 84.0% */
+#[test]
+fn test_positive_dt_fault_injection() {
+
+    let n = network_setup_from_file();
+    let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
+
+    // MANUAL FAULT INJECTION
+    //***************************************************************************
+    let fault_type: FaultType = FaultType::StuckAt1;
+    let time_step: Option<u64> = None;
+    let layer_index: usize = 1;
+    let component_category: ComponentCategory = ComponentCategory::MemoryArea;
+    let component_type: ComponentType = ComponentType::DT;
+    let component_index: usize = 1;
+    let bit_index: Option<usize> = Some(62);
+    //***************************************************************************
+    let fault = InjectedFault::new(fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
+
+    // PROCESSING WITH FAULT INJECTION
+    let mut vec_max = Vec::new();
+    for input_spikes in input_spike_train.iter() {
+        let output_spikes = snn.process_input(&input_spikes, Some(fault));
+        let max = compute_max_output_spike(output_spikes);
+        vec_max.push(max);
+    }
+    let acc = compute_accuracy(vec_max, &targets);
+    println!("Accuracy = {}%", acc);
+
+    // PRINT RESULTS
+    println!(""); // empty line
+    println!("Injected fault info:");
+    println!("{:?}", fault);
+    println!("Resulting accuracy = {}%", acc);
+    println!(""); // empty line
+
+}
+
+/**
     This test injects a fault in the membrane potential of the third neuron of the second layer.
     - neuron corresponding to the digit 2
     - bit at index 63 from 0 to 1
