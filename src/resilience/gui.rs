@@ -34,7 +34,7 @@ impl Tour {
         // For each step of the GUI, we check what the user has selected
         for i in 1..self.steps.steps.len() {
             match self.steps.steps.get(i).unwrap() {
-                Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator} => {
+                Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, dt, adder, multiplier, comparator} => {
                     if *intra != false { v.push(ComponentType::Intra) }
                     if *extra != false { v.push(ComponentType::Extra) }
                     if *reset != false { v.push(ComponentType::ResetPotential) }
@@ -43,6 +43,7 @@ impl Tour {
                     if *vmem != false { v.push(ComponentType::MembranePotential) }
                     if *tau != false { v.push(ComponentType::Tau) }
                     if *ts != false { v.push(ComponentType::Ts) }
+                    if *dt != false { v.push(ComponentType::DT) }
                     if *adder != false { v.push(ComponentType::Adder) }
                     if *multiplier != false { v.push(ComponentType::Multiplier) }
                     if *comparator != false { v.push(ComponentType::ThresholdComparator) }
@@ -253,7 +254,7 @@ impl Application for Tour {
                     if let Step::Network { 
                         input_length, hidden_layers_length, output_length, 
                         extra_files, intra_files, 
-                        resting_potential, reset_potential, threshold, beta, tau, 
+                        resting_potential, reset_potential, threshold, beta, tau, dt,
                         spike_length, batch_size, input_spike_train_file
                     } = self.steps.steps[1].clone() {
 
@@ -312,6 +313,9 @@ impl Application for Tour {
                         if !tau.is_empty() {
                             n.tau = tau.parse::<f64>().unwrap();
                         }
+                        if !dt.is_empty() {
+                            n.dt = dt.parse::<f64>().unwrap();
+                        }
                         if !spike_length.is_empty() {
                             n.spike_length = spike_length.parse::<usize>().unwrap();
                         }
@@ -335,7 +339,7 @@ impl Application for Tour {
                 // Delete components
                 let s = &mut self.steps.steps[4];
                 match s {
-                    Step::Components { ref mut intra, ref mut extra, ref mut reset,ref mut resting, ref mut threshold, ref mut vmem, ref mut tau, ref mut ts, ref mut adder, ref mut multiplier, ref mut comparator} => {
+                    Step::Components { ref mut intra, ref mut extra, ref mut reset,ref mut resting, ref mut threshold, ref mut vmem, ref mut tau, ref mut ts, ref mut dt, ref mut adder, ref mut multiplier, ref mut comparator} => {
                         *intra = false;
                         *extra = false;
                         *reset = false;
@@ -344,6 +348,7 @@ impl Application for Tour {
                         *vmem = false;
                         *tau = false;
                         *ts = false;
+                        *dt = false;
                         *adder = false;
                         *multiplier = false;
                         *comparator = false;
@@ -452,7 +457,7 @@ impl Steps {
                 Step::Network{
                     input_length: String::new(), hidden_layers_length: String::new(), output_length: String::new(),
                     extra_files: String::new(), intra_files: String::new(),
-                    resting_potential: String::new(), reset_potential: String::new(), threshold: String::new(), beta: String::new(), tau: String::new(),
+                    resting_potential: String::new(), reset_potential: String::new(), threshold: String::new(), beta: String::new(), tau: String::new(), dt: String::new(),
                     spike_length: String::new(), batch_size: String::new(), input_spike_train_file: String::new(),
                 },
                 Step::Waiting,
@@ -464,7 +469,7 @@ impl Steps {
                 },
                 Step::Components {
                     intra: false, extra: false,
-                    reset: false, resting: false, threshold: false, vmem: false, tau: false, ts: false,
+                    reset: false, resting: false, threshold: false, vmem: false, tau: false, ts: false, dt: false,
                     adder: false, multiplier: false, comparator: false
                 },
                 Step::FaultType { selection: None },
@@ -568,7 +573,7 @@ enum Step {
     Network{
         input_length: String, hidden_layers_length: String, output_length: String,
         extra_files: String, intra_files: String,
-        resting_potential: String, reset_potential: String, threshold: String, beta: String, tau: String,
+        resting_potential: String, reset_potential: String, threshold: String, beta: String, tau: String, dt: String,
         spike_length: String, batch_size: String, input_spike_train_file: String,
     },
     Waiting,
@@ -580,7 +585,7 @@ enum Step {
     },
     Components {
         intra: bool, extra: bool,
-        reset: bool, resting: bool, threshold: bool, vmem: bool, tau: bool, ts: bool,
+        reset: bool, resting: bool, threshold: bool, vmem: bool, tau: bool, ts: bool, dt: bool,
         adder: bool, multiplier: bool, comparator: bool,
     },
     FaultType { selection: Option<FaultType>, },
@@ -607,6 +612,7 @@ pub enum StepMessage {
     MemSelected(bool),
     TauSelected(bool),
     TsSelected(bool),
+    DTSelected(bool),
     AdderSelected(bool),
     MulSelected(bool),
     ComparatorSelected(bool),
@@ -625,6 +631,7 @@ pub enum StepMessage {
     ThresholdChanged(String),
     BetaChanged(String),
     TauChanged(String),
+    DTChanged(String),
     SpikeLengthChanged(String),
     BatchSizeChanged(String),
     InputSpikeTrainFileChanged(String),
@@ -672,6 +679,11 @@ impl<'a> Step {
             StepMessage::TsSelected(toggle) => {
                 if let Step::Components { ts, .. } = self {
                     *ts = toggle;
+                }
+            }
+            StepMessage::DTSelected(toggle) => {
+                if let Step::Components { dt, .. } = self {
+                    *dt = toggle;
                 }
             }
             StepMessage::AdderSelected(toggle) => {
@@ -751,6 +763,11 @@ impl<'a> Step {
                     *tau = new_value;
                 }
             }
+            StepMessage::DTChanged(new_value) => {
+                if let Step::Network { dt, .. } = self {
+                    *dt = new_value;
+                }
+            }
             StepMessage::SpikeLengthChanged(new_value) => {
                 if let Step::Network { spike_length, .. } = self {
                     *spike_length = new_value;
@@ -791,8 +808,8 @@ impl<'a> Step {
             Step::Network {..} => network_setup_from_file().is_ok(),
             Step::Waiting => true,
             Step::Accuracy { .. } => true,
-            Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator } => {
-                *intra != false || *extra != false || *reset != false || *resting != false || *threshold != false || *vmem != false || *tau != false || *ts != false || *adder != false || *multiplier != false || *comparator != false
+            Step::Components { intra,extra,reset,resting, threshold, vmem, tau, ts, dt, adder, multiplier, comparator } => {
+                *intra != false || *extra != false || *reset != false || *resting != false || *threshold != false || *vmem != false || *tau != false || *dt != false || *ts != false || *adder != false || *multiplier != false || *comparator != false
             },
             Step::FaultType { selection } => { selection.is_some() },
             Step::NumFaults { value, .. } => {
@@ -808,12 +825,12 @@ impl<'a> Step {
     fn view(&self) -> Element<StepMessage> {
         match self {
             Step::Welcome => Self::welcome(),
-            Step::Network {input_length, hidden_layers_length, output_length, extra_files, intra_files, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train_file}
-                => Self::network(input_length, hidden_layers_length, output_length, extra_files, intra_files, resting_potential, reset_potential, threshold, beta, tau, spike_length, batch_size, input_spike_train_file),
+            Step::Network {input_length, hidden_layers_length, output_length, extra_files, intra_files, resting_potential, reset_potential, threshold, beta, tau, dt, spike_length, batch_size, input_spike_train_file}
+                => Self::network(input_length, hidden_layers_length, output_length, extra_files, intra_files, resting_potential, reset_potential, threshold, beta, tau, dt, spike_length, batch_size, input_spike_train_file),
             Step::Waiting{} => Self::waiting(),
             Step::Accuracy {snn : _, input_spike_trains: _, targets: _, a} => Self::accuracy(*a),
-            Step::Components {intra,extra,reset,resting, threshold, vmem, tau, ts, adder, multiplier, comparator }
-                => Self::components(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *adder, *multiplier, *comparator),
+            Step::Components {intra,extra,reset,resting, threshold, vmem, tau, ts, dt, adder, multiplier, comparator }
+                => Self::components(*intra, *extra, *reset, *resting, *threshold, *vmem, *tau, *ts, *dt, *adder, *multiplier, *comparator),
             Step::FaultType { selection} => Self::fault_type(*selection),
             Step::NumFaults { value} => Self::num_faults(value),
             Step::Choices { c } => {
@@ -839,7 +856,7 @@ impl<'a> Step {
     fn network(
         input_length: &str, hidden_layers_length: &str, output_length: &str,
         extra_files: &str, intra_files: &str,
-        resting_potential: &str, reset_potential: &str, threshold: &str, beta: &str, tau: &str,
+        resting_potential: &str, reset_potential: &str, threshold: &str, beta: &str, tau: &str, dt: &str,
         spike_length: &str, batch_size: &str, input_spike_train_file: &str
     ) -> Column<'a, StepMessage> { //OK
 
@@ -929,6 +946,13 @@ impl<'a> Step {
             .size(20);
             let row10 = row![question10, text_input10];
 
+            let question10a = text(format!("dt:  ")).size(20);
+            let text_input10a: TextInput<'a, StepMessage> = text_input(r.dt.to_string().as_str(), dt)
+                .on_input(StepMessage::DTChanged)
+                .padding(5)
+                .size(20);
+            let row10a = row![question10a, text_input10a];
+
             let section_d = text(format!("SIMULATION INPUT SPIKES PARAMETERS")).size(20).style(theme::Text::Color(Color::new(0.0, 0.0, 1.0, 1.0)));
 
             let question11 = text(format!("Spike length:  ")).size(20);
@@ -966,6 +990,7 @@ impl<'a> Step {
                 .push(row8)
                 .push(row9)
                 .push(row10)
+                .push(row10a)
                 .push(section_d)
                 .push(row11)
                 .push(row12)
@@ -985,7 +1010,7 @@ impl<'a> Step {
 
     fn waiting() -> Column<'a, StepMessage> { //OK
         Self::container("We're about to test your network")
-            .push("The network accuracy test phase without fault injection takes about 1 minute.")
+            .push("The network accuracy test phase without fault injection takes about 1 minute for a batch of 256 images.")
             .push("Please press Next and wait for the result to appear", )
     }
 
@@ -1015,7 +1040,7 @@ impl<'a> Step {
 
     fn components( //OK
               intra: bool, extra: bool,
-              reset: bool, resting: bool, threshold: bool, vmem: bool, tau: bool, ts: bool,
+              reset: bool, resting: bool, threshold: bool, vmem: bool, tau: bool, ts: bool, dt: bool,
               adder: bool, multiplier: bool, comparator: bool,
     ) -> Column<'a, StepMessage> {
         let question = column![text("Select in which components you want to insert a fault:").size(20)];
@@ -1029,6 +1054,7 @@ impl<'a> Step {
             .push(checkbox(ComponentType::MembranePotential, vmem, StepMessage::MemSelected ))
             .push(checkbox(ComponentType::Tau, tau, StepMessage::TauSelected ))
             .push(checkbox(ComponentType::Ts, ts, StepMessage::TsSelected ))
+            .push(checkbox(ComponentType::DT, dt, StepMessage::DTSelected ))
             .push(checkbox(ComponentType::Adder, adder, StepMessage::AdderSelected ))
             .push(checkbox(ComponentType::Multiplier, multiplier, StepMessage::MulSelected ))
             .push(checkbox(ComponentType::ThresholdComparator, comparator, StepMessage::ComparatorSelected ))
@@ -1132,6 +1158,7 @@ impl From<ComponentType> for String {
             ComponentType::MembranePotential => "Membrane potential",
             ComponentType::Tau => "Tau",
             ComponentType::Ts => "Ts",
+            ComponentType::DT => "dt",
             ComponentType::Adder => "Adder",
             ComponentType::Multiplier => "Multiplier",
             ComponentType::ThresholdComparator => "Threshold comparator"
