@@ -43,7 +43,7 @@ extra_weights = ["simulation/parameters/weightsFile1.txt", "simulation/parameter
 # (currently, only LIF neurons are supported)
 # choose between beta and tau to configure the decay rate of the membrane potential
 # - comment out the tau line if you want to use beta instead
-# - if beta is specified, the tau value will be calculated automatically with the formula tau = (-1.0 / beta.ln())
+# - if beta is specified, the tau value will be calculated automatically with the formula tau = (-dt / beta.ln())
 
 [LIF_neuron_parameters]               
 resting_potential = 0.0

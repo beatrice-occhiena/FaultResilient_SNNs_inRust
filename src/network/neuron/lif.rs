@@ -11,7 +11,7 @@ pub struct Lif {
     membrane_potential: f64, // membrane potential
     tau: f64, // time constant
     ts: u64, // last time instant where a spike has been received
-    dt: f64
+    dt: f64 // quantization parameter that defines the amplitude of the interval between two consecutive instants
 }
 
 impl Lif {

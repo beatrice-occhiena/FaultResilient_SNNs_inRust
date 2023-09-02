@@ -43,6 +43,7 @@ pub struct Lif {
     membrane_potential: f64, // membrane potential
     tau: f64, // time constant
     ts: u64 // last time instant where a spike has been received
+    dt: f64 // quantization parameter that defines the amplitude of the interval between two consecutive instants
 }
 ```
 
@@ -64,21 +65,6 @@ pub struct SpikeEvent {
     spikes: Vec<u8> // input vector (0/1) in a layer at time instant t
 }
 ```
-#### Processing steps
-1. **Initialization**: Initial reset of all the neurons in the layer.
-2. **Listening to Spike Events**: The method continuously listens for incoming spike events from 
-the previous layer through the **`layer_input_rc`** receiver channel.
-3. **Processing Spike Events**: For each received **`input_spike_event`**, the method:
-   - Saves the corresponding time instant
-   - Calculates the weighted input sum for each neuron and triggers the computation of the membrane potential
-   - Adds the resulting neuron output to the output vector
-4. **Propagation of Output Spikes**: If at least one neuron fired, it proceeds to send the computed 
-Spike Event to the next layer through the **`layer_output_tx`** sender channel.
-5. **Saving Output Spikes**: The computed **`output_spikes`** are saved in the **`prev_output_spikes`** 
-vector, which will be used in the next iteration to compute the **`intra_weighted_sum`** for the next round of processing.
-6. **Finalization**: The method continues to listen for more incoming spike events from the previous 
-layer until the channel is closed or the previous layer terminates. Once all input spike events are 
-processed, the method completes its execution.
 
 
 ### SNN
@@ -93,11 +79,7 @@ pub struct SNN < N: Neuron + Clone + Send + 'static > {
 ```rust
 fn derive_input_spike_events(&self, input_spikes: &Vec<Vec<u8>>) -> Vec<SpikeEvent>
 ```
-The method checks the consistency of the input spikes matrix:
-1. The number of input neurons must be consistent with the number of rows in the input spikes matrix 
-2. The number of columns in the input spikes matrix must be consistent for all the rows 
-3. The value of the spike must be either 0 or 1
-The input spike matrix is converted into a vector of Spike Events
+The method checks the consistency of the input spikes matrix that is converted into a vector of Spike Events.
 
 - Parallel-processing
 ```rust
@@ -157,14 +139,13 @@ pub struct NetworkSetup {
     pub threshold: f64,
     pub beta: f64,
     pub tau: f64,
+    pub dt: f64, 
     pub spike_length: usize,
     pub batch_size: usize,
     pub input_spike_train: String,
     pub target_file: String
 }
 ```
-
-#to_do
 
 
 ## Tool interface
@@ -187,11 +168,10 @@ pub struct Steps {
 }
 ```
 `Step` is defined as an enum. Each element contains a struct composed by the variables that are required at that step.
-Each step is associated with a method that returns a Column (i.e., a container that distributes its contents vertically). 
+Each step is associated with a method that defines the container that is displayed. 
 
 The following objects of the crate has been used: `text`, `text_input`, `radio`, `checkbox`, `image`.
 
-#to_do
 
 ## Resilience analysis
 For the resilience analysis only single-bit faults have been considered (stuck-at-0, stuck-at-1, transient-bit-flip).
@@ -223,10 +203,17 @@ pub enum ComponentType {
     MembranePotential,
     Tau,
     Ts,
+    DT, 
     // Internal processing blocks
     Adder,
     Multiplier,
     ThresholdComparator,
+}
+```
+The following trait defines the generic function that allows to apply a fault in a bit of the selected variable. The trait is implemented for f64, u64 and u8.
+```rust
+pub trait ApplyFault<T> {
+    fn apply_fault(&self, var: T, timestamp: u64) -> T;
 }
 ```
 
@@ -241,18 +228,90 @@ pub struct UserSelection {
 }
 ```
 Given the user selection, the following function select a random bit index from the components selected and runs the simulation of the SNN with the injected fault.
-It returns a vector of tuples containing: the accuracy of the SNN with the injected faults, all the information about the injected fault.
+It returns a vector of tuples containing: the accuracy of the SNN with the injected faults and all the information about the injected fault.
 ```rust
 pub fn run_simulation(&self, user_selection: UserSelection, targets: Vec<u8>, no_faults_accuracy: f64) -> Vec<(f64,InjectedFault)>
 ```
-We distinguished between static and dynamic components. If the fault is introduced in a static component, we change the value from the beginning of the simulation, otherwise we modify it only when required.
-Furthermore, if the fault introduced have no effect in the value (for stuck-at-1 and stuck-at-0), the simulation is not run and the accuracy without faults is returned.
-
 
 The accuracy is computed with the following function:
 ```rust
 pub fn compute_accuracy(vec_max: Vec<u8>, targets: &Vec<u8>) -> f64
 ```
-It compares each target with the index of the maximum of the output spike train's sums.
+It sums the spikes over time and compare the neuron with the highest number of spikes with the target.
 
 ## Usage example
+This is an example of test to test the network without faults:
+```rust
+fn test_process_snn_with_more_layers() {
+    let snn = SNNBuilder::new(2)
+        .add_layer(vec![
+            Lif::new(0.2, 0.1, 0.5, 0.7, 1.0),
+            Lif::new(0.1, 0.05, 0.3, 1.0, 1.0)], vec![
+            vec![0.1, 0.2],
+            vec![0.3, 0.4]], vec![
+            vec![0.0, -0.4],
+            vec![-0.1, 0.0]
+        ])
+        .add_layer(vec![
+            Lif::new(0.15, 0.1, 0.2, 0.1, 1.0),
+            Lif::new(0.05, 0.2, 0.3, 0.3, 1.0),
+            Lif::new(0.1, 0.15, 0.4, 0.8, 1.0),
+            Lif::new(0.01, 0.35, 0.05, 1.0, 1.0)], vec![
+            vec![0.7, 0.2],
+            vec![0.3, 0.8],
+            vec![0.5, 0.6],
+            vec![0.3, 0.2]], vec![
+            vec![0.0, -0.2, -0.4, -0.9],
+            vec![-0.1, 0.0, -0.3, -0.2],
+            vec![-0.6, -0.2, 0.0, -0.9],
+            vec![-0.5, -0.3, -0.8, 0.0]])
+        .add_layer(vec![
+            Lif::new(0.1, 0.05, 0.3, 1.0, 1.0)], vec![
+            vec![0.3, 0.3, 0.2, 0.7]], vec![
+            vec![0.0]])
+        .build();
+
+    let output_spikes = snn.process_input(&vec![vec![1,0,1,0],vec![0,0,1,1]], None);
+    let output_expected: Vec<Vec<u8>> = vec![vec![1,0,1,1]];
+
+    assert_eq!(output_spikes, output_expected);
+}
+```
+This is an example of test to see how the accuracy changes injecting a significant fault in the threshold parameter of the LIF neuron:
+```rust
+fn test_positive_threshold_fault_injection() {
+
+  let n = network_setup_from_file();
+  let (snn, input_spike_train, targets) = build_network_from_setup(n.unwrap());
+
+  // MANUAL FAULT INJECTION
+  //***************************************************************************
+  let fault_type: FaultType = FaultType::StuckAt1;
+  let time_step: Option<u64> = None;
+  let layer_index: usize = 1;
+  let component_category: ComponentCategory = ComponentCategory::MemoryArea;
+  let component_type: ComponentType = ComponentType::Threshold;
+  let component_index: usize = 2;
+  let bit_index: Option<usize> = Some(62);
+  //***************************************************************************
+  let fault = InjectedFault::new(fault_type, time_step, layer_index, component_type, component_category, component_index, bit_index);
+
+  // PROCESSING WITH FAULT INJECTION
+  let mut vec_max = Vec::new();
+  for input_spikes in input_spike_train.iter() {
+      let output_spikes = snn.process_input(&input_spikes, Some(fault));
+      let max = compute_max_output_spike(output_spikes);
+      vec_max.push(max);
+  }
+  let acc = compute_accuracy(vec_max, &targets);
+  println!("Accuracy = {}%", acc);
+
+  // PRINT RESULTS
+  println!(""); // empty line
+  println!("Injected fault info:");
+  println!("{:?}", fault);
+  println!("Resulting accuracy = {}%", acc);
+  println!(""); // empty line
+
+}
+```
