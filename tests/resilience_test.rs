@@ -192,7 +192,7 @@ fn test_positive_threshold_comparator_fault_injection() {
 }
 
 /**
-    This test injects a fault in the intra weight of the first input of the first neuron of the second layer.
+    This test injects a fault in the intra weight of the second input of the first neuron of the second layer.
     - neuron corresponding to the digit 0
     - input corresponding to the digit 2
     - bit at index 62 from 0 to 1

@@ -41,7 +41,7 @@ impl Display for InjectedFault {
         write!(f, "Component category: {}\n", String::from(self.component_category))?;
         write!(f, "Component type: {}\n", String::from(self.component_type))?;
         write!(f, "Component index: {}\n", self.component_index)?;
-        if self.time_step.is_some() {
+        if self.bit_index.is_some() {
             write!(f, "Bit index: {}\n", self.bit_index.unwrap())?;
         }
         write!(f, "")

@@ -112,7 +112,7 @@ impl Tour {
         }
 
         // Creating a new drawing area
-        let root = BitMapBackend::new("plotters-data/graph.png", (1024, 768)).into_drawing_area();
+        let root = BitMapBackend::new("simulation/plotters-data/graph.png", (1024, 768)).into_drawing_area();
         // Filling the drawing area with WHITE color
         root.fill(&WHITE)?;
 
@@ -1102,7 +1102,7 @@ impl<'a> Step {
     
     fn image(avg_acc: &f64) -> Column<'a, StepMessage> {
         Self::container("Accuracy graphic")
-            .push(image("plotters-data/graph.png").width(900))
+            .push(image("simulation/plotters-data/graph.png").width(900))
             .push(text(format!("Average accuracy: {:.1} %", avg_acc)))
             .push("Please click Next to see the details of each injected fault", )
     }

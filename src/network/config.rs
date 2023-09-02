@@ -13,7 +13,7 @@ use std::io::Write;
 // This module defines the `NetworkSetup` struct and functions for parsing network configuration from a TOML file.
 // - `NetworkSetup` struct holds parsed network configuration parameters.
 // - `network_setup_from_file` reads and parses the TOML config file and returns a `NetworkSetup` object.
-// It also converts the parsed parameters to a fully configured `SNN` object usinf the `SNNBuilder` module.
+// It also converts the parsed parameters to a fully configured `SNN` object using the `SNNBuilder` module.
 
 #[derive(Debug)]
 pub struct NetworkSetup {
@@ -92,6 +92,9 @@ impl NetworkSetup {
     }
 }
 
+/**
+    This function builds a NetworkSetup struct with the parameters with the information provided by the user in the file config.toml
+**/
 pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
 
     // Read the configuration file
@@ -100,7 +103,7 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     config_file.read_to_string(&mut config_toml).expect("Failed to read config file");
 
     // Parse the TOML configuration
-    let config: toml::Value;// = toml::from_str(&config_toml).expect("Failed to parse TOML config");
+    let config: toml::Value;
     match toml::from_str(&config_toml) {
         Ok(c) => config = c,
         Err(_e) => return Err("Error")
@@ -163,13 +166,16 @@ pub fn network_setup_from_file() -> Result<NetworkSetup, &'static str> {
     // TARGET FILE FOR ACCURACY
     let target_file = config["accuracy"]["target_file"].to_string();
 
-     Ok(NetworkSetup::new(input_length.clone(), hidden_layers_length.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone(), target_file.clone()))
+    Ok(NetworkSetup::new(input_length.clone(), hidden_layers_length.clone(), output_length.clone(), extra_weights.clone(), intra_weights.clone(), resting_potential.clone(), reset_potential.clone(), threshold.clone(), beta.clone(), tau.clone(), spike_length.clone(), batch_size.clone(), input_spike_train.clone(), target_file.clone()))
     // Now you can use the extracted parameters to build your SNN and perform operations as needed.
 
 }
 
+/**
+    This function builds the SNN, the input spike trains and the targets starting from the struct NetworkSetup
+**/
 pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>, Vec<u8>) {
-    
+
     // Collect in one vector all the info about layers' dimensions
     let mut layers_dim = Vec::new();
     for l in n.hidden_layers.iter() {
@@ -182,7 +188,7 @@ pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>
     for l in layers_dim.iter() {
         vec_neurons.push(get_neurons(*l, n.reset_potential, n.resting_potential, n.threshold, n.tau));
     }
-    
+
     // Getting extra_weights from files
     let mut vec_extra_weights = Vec::new();
     let w = get_extra_weights(rem_first_and_last(n.extra_weights.get(0).unwrap().as_str()), n.input_layer, *layers_dim.get(0).unwrap());
@@ -203,7 +209,7 @@ pub fn build_network_from_setup(n: NetworkSetup) -> (SNN<Lif>, Vec<Vec<Vec<u8>>>
     //Building the SNN
     let mut snn_builder = SNNBuilder::new(n.input_layer);
     for (w, n) in vec_extra_weights.iter().zip(vec_intra_weights.iter()).zip(vec_neurons.iter()) {
-        snn_builder = snn_builder.add_layer(n.clone().to_vec(), w.0.clone(), w.1.clone());
+        snn_builder = snn_builder.add_layer(n.to_vec(), w.0.to_vec(), w.1.to_vec());
     }
     let snn = snn_builder.build();
 
@@ -308,6 +314,9 @@ pub fn get_targets(filename: &str, batch_size: usize) -> Vec<u8> {
     targets
 }
 
+/**
+    Sum the spikes over time and compare the neuron with the highest number of spikes with the target
+ **/
 pub fn compute_accuracy(vec_max: Vec<u8>, targets: &Vec<u8>) -> f64 {
     let matching = vec_max.iter().zip(targets).filter(|&(a, b)| a == b).count();
     ((matching * 100) / targets.len()) as f64
