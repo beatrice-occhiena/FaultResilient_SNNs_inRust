@@ -5,7 +5,7 @@ The objective of this project is to develop a tool that constructs and evaluates
 
 The training phase of the network is not included, assuming that the trained hyperparameters are available.
 
-This project was completed as part of the "System Programming" course at Politecnico di Torino for the academic year 2022-2023.
+This project was an optional research initiative linked to the "Systems Programming" course at Politecnico di Torino for the academic year 2022-2023, with a focus on Rust programming and parallel computing.
 
 ## Group members
 - Beatrice Occhiena
